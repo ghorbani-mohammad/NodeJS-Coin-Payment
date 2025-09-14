@@ -4,7 +4,7 @@ services:
     container_name: nodejs-coin-payment
     restart: unless-stopped
     ports:
-      - '8039:8039'
+      - 8039:8039
     environment:
       - NODE_ENV=production
       - PORT=8039

@@ -41,7 +41,7 @@ PAYID19_PUBLIC_KEY=your_public_key_here
 PAYID19_PRIVATE_KEY=your_private_key_here
 
 # Server Configuration
-PORT=3000
+PORT=8039
 NODE_ENV=development
 
 # Domain Configuration
@@ -74,12 +74,12 @@ npm run dev
 npm start
 ```
 
-Your server will be running at `http://localhost:3000`
+Your server will be running at `http://localhost:8039`
 
 ## 📚 API Documentation
 
 ### Base URL
-- Development: `http://localhost:3000`
+- Development: `http://localhost:8039`
 - Production: `https://coin-payment.m-gh.com`
 
 ### Endpoints
@@ -191,7 +191,7 @@ const axios = require('axios');
 
 async function createPayment() {
   try {
-    const response = await axios.post('http://localhost:3000/api/payment/create-invoice', {
+    const response = await axios.post('http://localhost:8039/api/payment/create-invoice', {
       priceAmount: 50,
       priceCurrency: 'USD',
       orderId: 'my_order_123',
@@ -215,7 +215,7 @@ async function createPayment() {
 ```javascript
 async function checkPaymentStatus(orderId) {
   try {
-    const response = await axios.get(`http://localhost:3000/api/payment/invoices?orderId=${orderId}`);
+    const response = await axios.get(`http://localhost:8039/api/payment/invoices?orderId=${orderId}`);
     
     const invoice = response.data.data[0];
     console.log('Payment Status:', invoice.status);
@@ -324,18 +324,6 @@ npm install -g pm2
 pm2 start server.js --name "coin-payment"
 pm2 startup
 pm2 save
-```
-
-### Docker Deployment
-
-```dockerfile
-FROM node:16-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm install --production
-COPY . .
-EXPOSE 3000
-CMD ["npm", "start"]
 ```
 
 ## 🔍 Troubleshooting
