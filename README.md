@@ -364,29 +364,3 @@ NODE_ENV=development
 ```
 
 This will provide detailed logging and error messages.
-
-## 📞 Support
-
-- **PayID19 Documentation**: [https://payid19.com/dev](https://payid19.com/dev)
-- **PayID19 Support**: Contact through their website
-- **API Status**: Check PayID19 status page for service updates
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 🔄 Updates
-
-Keep your integration updated with the latest PayID19 API changes by regularly checking their documentation and updating this codebase accordingly.
-
----
-
-**Built with ❤️ for cryptocurrency payments**
