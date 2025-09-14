@@ -3,12 +3,94 @@ const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const config = require('../config');
 
+// Add axios interceptors for detailed logging
+axios.interceptors.request.use(
+  (config) => {
+    console.log('🌐 HTTP Request:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      baseURL: config.baseURL,
+      headers: config.headers,
+      timeout: config.timeout,
+      data: config.data ? JSON.stringify(config.data, null, 2) : 'no data'
+    });
+    return config;
+  },
+  (error) => {
+    console.error('💥 Request interceptor error:', error);
+    return Promise.reject(error);
+  }
+);
+
+axios.interceptors.response.use(
+  (response) => {
+    console.log('📥 HTTP Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      data: JSON.stringify(response.data, null, 2)
+    });
+    return response;
+  },
+  (error) => {
+    console.error('💥 Response interceptor error:', {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data ? JSON.stringify(error.response.data, null, 2) : 'no data',
+      config: {
+        method: error.config?.method,
+        url: error.config?.url,
+        baseURL: error.config?.baseURL
+      }
+    });
+    return Promise.reject(error);
+  }
+);
+
 class PayID19Service {
   constructor() {
+    console.log('🏗️ Initializing PayID19Service...');
+    
     this.apiUrl = config.payid19.apiUrl;
     this.publicKey = config.payid19.publicKey;
     this.privateKey = config.payid19.privateKey;
     this.domainUrl = config.domain.url;
+    
+    // Validate configuration on startup
+    console.log('🔍 Configuration validation:');
+    console.log('  - API URL:', this.apiUrl);
+    console.log('  - Public Key:', this.publicKey ? `${this.publicKey.substring(0, 8)}...` : 'NOT SET');
+    console.log('  - Private Key:', this.privateKey ? `${this.privateKey.substring(0, 8)}...` : 'NOT SET');
+    console.log('  - Domain URL:', this.domainUrl);
+    
+    // Check for default/placeholder values
+    const issues = [];
+    if (!this.publicKey || this.publicKey === 'your_public_key_here') {
+      issues.push('Public key not properly configured');
+    }
+    if (!this.privateKey || this.privateKey === 'your_private_key_here') {
+      issues.push('Private key not properly configured');
+    }
+    if (!this.apiUrl || this.apiUrl.includes('your_')) {
+      issues.push('API URL not properly configured');
+    }
+    if (!this.domainUrl || this.domainUrl.includes('your_')) {
+      issues.push('Domain URL not properly configured');
+    }
+    
+    if (issues.length > 0) {
+      console.warn('⚠️ Configuration issues detected:');
+      issues.forEach(issue => console.warn(`  - ${issue}`));
+    } else {
+      console.log('✅ Configuration validation passed');
+    }
+    
+    console.log('📋 Callback URLs:');
+    console.log('  - Callback:', `${this.domainUrl}${config.callbacks.callback}`);
+    console.log('  - Success:', `${this.domainUrl}${config.callbacks.success}`);
+    console.log('  - Cancel:', `${this.domainUrl}${config.callbacks.cancel}`);
   }
 
   /**
@@ -23,6 +105,22 @@ class PayID19Service {
    */
   async createInvoice(invoiceData) {
     try {
+      console.log('🔧 PayID19Service.createInvoice() - Starting invoice creation');
+      console.log('📋 Input data:', {
+        priceAmount: invoiceData.priceAmount,
+        priceCurrency: invoiceData.priceCurrency,
+        orderId: invoiceData.orderId,
+        orderDescription: invoiceData.orderDescription,
+        customerEmail: invoiceData.customerEmail ? '***@***.***' : 'not provided'
+      });
+
+      // Validate configuration
+      console.log('⚙️ Configuration check:');
+      console.log('  - API URL:', this.apiUrl);
+      console.log('  - Public Key:', this.publicKey ? `${this.publicKey.substring(0, 8)}...` : 'NOT SET');
+      console.log('  - Private Key:', this.privateKey ? `${this.privateKey.substring(0, 8)}...` : 'NOT SET');
+      console.log('  - Domain URL:', this.domainUrl);
+
       const {
         priceAmount,
         priceCurrency = 'USD',
@@ -47,23 +145,82 @@ class PayID19Service {
         requestData.customer_email = customerEmail;
       }
 
+      console.log('📤 Request payload (sensitive data masked):', {
+        public_key: requestData.public_key ? `${requestData.public_key.substring(0, 8)}...` : 'NOT SET',
+        private_key: requestData.private_key ? `${requestData.private_key.substring(0, 8)}...` : 'NOT SET',
+        price_amount: requestData.price_amount,
+        price_currency: requestData.price_currency,
+        order_id: requestData.order_id,
+        order_description: requestData.order_description,
+        callback_url: requestData.callback_url,
+        success_url: requestData.success_url,
+        cancel_url: requestData.cancel_url,
+        customer_email: requestData.customer_email || 'not provided'
+      });
+
+      console.log('🌐 Making API request to:', `${this.apiUrl}/create_invoice`);
       const response = await axios.post(`${this.apiUrl}/create_invoice`, requestData);
       
+      console.log('📥 Raw API response:');
+      console.log('  - Status:', response.status);
+      console.log('  - Status Text:', response.statusText);
+      console.log('  - Headers:', response.headers);
+      console.log('  - Data:', JSON.stringify(response.data, null, 2));
+      
       if (response.data && response.data.result) {
+        console.log('✅ Invoice creation successful');
         return {
           success: true,
           data: response.data.result,
           message: 'Invoice created successfully'
         };
       } else {
-        throw new Error(response.data.message || 'Failed to create invoice');
+        console.log('❌ Invoice creation failed - No result in response');
+        console.log('📋 Response data structure:', {
+          hasData: !!response.data,
+          hasResult: !!(response.data && response.data.result),
+          hasMessage: !!(response.data && response.data.message),
+          dataKeys: response.data ? Object.keys(response.data) : 'no data'
+        });
+        throw new Error(response.data?.message || 'Failed to create invoice - No result in response');
       }
     } catch (error) {
-      console.error('Error creating invoice:', error.response?.data || error.message);
+      console.log('💥 Exception caught in createInvoice:');
+      console.log('  - Error type:', error.constructor.name);
+      console.log('  - Error message:', error.message);
+      console.log('  - Error code:', error.code);
+      
+      if (error.response) {
+        console.log('📥 HTTP Error Response:');
+        console.log('  - Status:', error.response.status);
+        console.log('  - Status Text:', error.response.statusText);
+        console.log('  - Headers:', error.response.headers);
+        console.log('  - Data:', JSON.stringify(error.response.data, null, 2));
+      } else if (error.request) {
+        console.log('📤 HTTP Request made but no response received:');
+        console.log('  - Request config:', {
+          method: error.config?.method,
+          url: error.config?.url,
+          baseURL: error.config?.baseURL,
+          timeout: error.config?.timeout
+        });
+      } else {
+        console.log('🔧 Error in request setup:', error.message);
+      }
+      
+      console.log('📋 Full error object:', JSON.stringify(error, null, 2));
+      
       return {
         success: false,
-        error: error.response?.data?.message || error.message,
-        message: 'Failed to create invoice'
+        error: error.response?.data?.message || error.response?.data || error.message,
+        message: 'Failed to create invoice',
+        debug: {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          responseData: error.response?.data,
+          errorType: error.constructor.name,
+          errorCode: error.code
+        }
       };
     }
   }

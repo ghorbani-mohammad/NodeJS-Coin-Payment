@@ -45,6 +45,7 @@ router.post('/create-invoice', async (req, res) => {
     });
 
     // Create invoice using PayID19 service
+    console.log(`🔄 Calling PayID19Service.createInvoice() for order ${finalOrderId}`);
     const result = await payid19Service.createInvoice({
       priceAmount,
       priceCurrency,
@@ -52,6 +53,17 @@ router.post('/create-invoice', async (req, res) => {
       orderDescription: orderDescription || `Payment for order ${finalOrderId}`,
       customerEmail
     });
+
+    console.log(`📊 PayID19Service.createInvoice() result for order ${finalOrderId}:`);
+    console.log('  - Success:', result.success);
+    console.log('  - Message:', result.message);
+    console.log('  - Error:', result.error);
+    if (result.debug) {
+      console.log('  - Debug info:', result.debug);
+    }
+    if (result.data) {
+      console.log('  - Data keys:', Object.keys(result.data));
+    }
 
     if (result.success) {
       console.log(`✅ Invoice created successfully for order ${finalOrderId}`);
@@ -72,12 +84,34 @@ router.post('/create-invoice', async (req, res) => {
         }
       });
     } else {
-      console.error(`❌ Failed to create invoice for order ${finalOrderId}:`, result.error);
+      console.error(`❌ Failed to create invoice for order ${finalOrderId}:`);
+      console.error('  - Error details:', result.error);
+      console.error('  - Message:', result.message);
+      if (result.debug) {
+        console.error('  - Debug information:', JSON.stringify(result.debug, null, 2));
+      }
+      
+      // Determine if the error is a URL (which seems to be the case based on your logs)
+      const errorMessage = result.error;
+      const isUrl = typeof errorMessage === 'string' && (
+        errorMessage.startsWith('http://') || 
+        errorMessage.startsWith('https://') ||
+        errorMessage.includes('payid19.com')
+      );
+      
+      if (isUrl) {
+        console.error('🚨 WARNING: Error appears to be a URL instead of an error message!');
+        console.error('  - This suggests the API is returning a URL in the error field');
+        console.error('  - URL:', errorMessage);
+      }
+      
       res.status(400).json({
         success: false,
         error: 'Invoice Creation Failed',
         message: result.message,
-        details: result.error
+        details: result.error,
+        debug: result.debug,
+        isUrlError: isUrl
       });
     }
 
