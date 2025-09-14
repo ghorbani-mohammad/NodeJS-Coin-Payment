@@ -167,22 +167,70 @@ class PayID19Service {
       console.log('  - Headers:', response.headers);
       console.log('  - Data:', JSON.stringify(response.data, null, 2));
       
-      if (response.data && response.data.result) {
-        console.log('✅ Invoice creation successful');
-        return {
-          success: true,
-          data: response.data.result,
-          message: 'Invoice created successfully'
-        };
+      // Handle different API response formats
+      if (response.data) {
+        // Check for the expected format with 'result' field
+        if (response.data.result) {
+          console.log('✅ Invoice creation successful (result format)');
+          return {
+            success: true,
+            data: response.data.result,
+            message: 'Invoice created successfully'
+          };
+        }
+        // Check for alternative format where invoice URL is in 'message' field
+        else if (response.data.status === 'success' && response.data.message) {
+          const invoiceUrl = response.data.message;
+          console.log('✅ Invoice creation successful (message format)');
+          console.log('🔗 Invoice URL:', invoiceUrl);
+          
+          // Extract invoice ID from URL
+          const invoiceId = invoiceUrl.split('/').pop();
+          
+          // Create a standardized response format
+          const invoiceData = {
+            invoice_id: invoiceId,
+            invoice_url: invoiceUrl,
+            price_amount: priceAmount,
+            price_currency: priceCurrency,
+            pay_amount: null, // Will be determined by the payment processor
+            pay_currency: null, // Will be determined by the payment processor
+            order_id: orderId,
+            status: 'waiting',
+            created_at: new Date().toISOString(),
+            // Set expiry to 24 hours from now (common default)
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          };
+          
+          console.log('📋 Standardized invoice data:', invoiceData);
+          
+          return {
+            success: true,
+            data: invoiceData,
+            message: 'Invoice created successfully'
+          };
+        }
+        // Check for error status
+        else if (response.data.status === 'error') {
+          console.log('❌ Invoice creation failed - API returned error status');
+          throw new Error(response.data.message || 'API returned error status');
+        }
+        // Unknown format
+        else {
+          console.log('❌ Invoice creation failed - Unknown response format');
+          console.log('📋 Response data structure:', {
+            hasData: !!response.data,
+            hasResult: !!(response.data && response.data.result),
+            hasMessage: !!(response.data && response.data.message),
+            hasStatus: !!(response.data && response.data.status),
+            status: response.data.status,
+            dataKeys: response.data ? Object.keys(response.data) : 'no data'
+          });
+          throw new Error(`Unknown API response format: ${JSON.stringify(response.data)}`);
+        }
       } else {
-        console.log('❌ Invoice creation failed - No result in response');
-        console.log('📋 Response data structure:', {
-          hasData: !!response.data,
-          hasResult: !!(response.data && response.data.result),
-          hasMessage: !!(response.data && response.data.message),
-          dataKeys: response.data ? Object.keys(response.data) : 'no data'
-        });
-        throw new Error(response.data?.message || 'Failed to create invoice - No result in response');
+        console.log('❌ Invoice creation failed - No response data');
+        throw new Error('No response data received from API');
       }
     } catch (error) {
       console.log('💥 Exception caught in createInvoice:');

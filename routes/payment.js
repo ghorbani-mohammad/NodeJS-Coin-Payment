@@ -76,8 +76,8 @@ router.post('/create-invoice', async (req, res) => {
           paymentUrl: result.data.invoice_url,
           priceAmount: result.data.price_amount,
           priceCurrency: result.data.price_currency,
-          payAmount: result.data.pay_amount,
-          payCurrency: result.data.pay_currency,
+          payAmount: result.data.pay_amount || null,
+          payCurrency: result.data.pay_currency || null,
           status: result.data.status,
           createdAt: result.data.created_at,
           expiresAt: result.data.expires_at
