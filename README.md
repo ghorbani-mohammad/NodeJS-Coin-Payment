@@ -56,13 +56,6 @@ CANCEL_URL=/payment/cancel
 API_SECRET=your_api_secret_for_webhook_verification
 ```
 
-### 3. Get PayID19 API Keys
-
-1. Register at [PayID19.com](https://payid19.com)
-2. Login to your account
-3. Go to **Settings** page
-4. Copy your `public_key` and `private_key`
-5. Update your `.env` file with these keys
 
 ### 4. Start the Server
 
