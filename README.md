@@ -57,18 +57,6 @@ API_SECRET=your_api_secret_for_webhook_verification
 ```
 
 
-### 4. Start the Server
-
-```bash
-# Development mode
-npm run dev
-
-# Production mode
-npm start
-```
-
-Your server will be running at `http://localhost:8039`
-
 ## 📚 API Documentation
 
 ### Base URL
