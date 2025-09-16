@@ -77,9 +77,26 @@ Create a new cryptocurrency payment invoice.
   "priceCurrency": "USD",
   "orderId": "order_123",
   "orderDescription": "Purchase of digital goods",
-  "customerEmail": "customer@example.com"
+  "customerEmail": "customer@example.com",
+  "successUrl": "https://yoursite.com/payment/success?orderId=order_123",
+  "failureUrl": "https://yoursite.com/payment/failed?orderId=order_123",
+  "cancelUrl": "https://yoursite.com/payment/cancelled?orderId=order_123"
 }
 ```
+
+**Parameters:**
+- `priceAmount` (required): Amount to charge in the specified currency
+- `priceCurrency` (optional): Currency code (default: "USD")
+- `orderId` (optional): Unique order identifier (auto-generated if not provided)
+- `orderDescription` (optional): Description of the purchase
+- `customerEmail` (optional): Customer's email address
+- `successUrl` (optional): Custom success page URL (overrides default)
+- `failureUrl` (optional): Custom failure page URL (used for both cancel and failure if cancelUrl not specified)
+- `cancelUrl` (optional): Custom cancellation page URL (overrides failureUrl for cancellations)
+
+**URL Priority:**
+- Success: `successUrl` → default success URL
+- Cancel: `cancelUrl` → `failureUrl` → default cancel URL
 
 **Response:**
 ```json
@@ -163,6 +180,48 @@ This endpoint receives payment status updates from PayID19. It's automatically c
 }
 ```
 
+## 💡 Custom Success and Failure Pages
+
+### Why Use Custom Pages?
+
+Custom success and failure pages provide better user experience and business intelligence:
+
+1. **Order-Specific Information**: Pass order details via URL parameters
+2. **Branded Experience**: Maintain your brand consistency throughout the payment flow
+3. **Analytics Tracking**: Track conversion rates and payment success/failure patterns
+4. **Dynamic Content**: Show relevant products, offers, or next steps
+5. **Customer Support**: Provide specific help based on payment outcome
+
+### URL Parameters Best Practices
+
+```javascript
+// Include order information in URLs for better UX
+const successUrl = `https://mystore.com/payment/success?orderId=${orderId}&amount=${priceAmount}&currency=${priceCurrency}`;
+const failureUrl = `https://mystore.com/payment/failed?orderId=${orderId}&reason=payment_failed`;
+
+// Or use a unified handler with status parameter
+const successUrl = `https://mystore.com/payment/result?orderId=${orderId}&status=success`;
+const cancelUrl = `https://mystore.com/payment/result?orderId=${orderId}&status=cancelled`;
+```
+
+### Example Success Page Implementation
+
+```javascript
+// On your success page
+const urlParams = new URLSearchParams(window.location.search);
+const orderId = urlParams.get('orderId');
+const amount = urlParams.get('amount');
+const currency = urlParams.get('currency');
+
+// Display success message with order details
+document.getElementById('orderInfo').innerHTML = `
+  <h2>Payment Successful!</h2>
+  <p>Order ID: ${orderId}</p>
+  <p>Amount: ${amount} ${currency}</p>
+  <p>Thank you for your purchase!</p>
+`;
+```
+
 ## 🔧 Usage Examples
 
 ### Creating a Payment
@@ -177,7 +236,9 @@ async function createPayment() {
       priceCurrency: 'USD',
       orderId: 'my_order_123',
       orderDescription: 'Digital Product Purchase',
-      customerEmail: 'customer@example.com'
+      customerEmail: 'customer@example.com',
+      successUrl: 'https://mystore.com/payment/success?orderId=my_order_123',
+      failureUrl: 'https://mystore.com/payment/failed?orderId=my_order_123'
     });
 
     console.log('Payment URL:', response.data.data.paymentUrl);
