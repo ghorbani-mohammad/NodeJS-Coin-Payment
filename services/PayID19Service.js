@@ -101,6 +101,9 @@ class PayID19Service {
    * @param {string} invoiceData.orderId - Unique order identifier
    * @param {string} invoiceData.orderDescription - Description of the order
    * @param {string} invoiceData.customerEmail - Customer email (optional)
+   * @param {string} invoiceData.successUrl - Custom success page URL (optional)
+   * @param {string} invoiceData.failureUrl - Custom failure page URL (optional)
+   * @param {string} invoiceData.cancelUrl - Custom cancel page URL (optional)
    * @returns {Promise<Object>} Invoice creation response
    */
   async createInvoice(invoiceData) {
@@ -126,8 +129,23 @@ class PayID19Service {
         priceCurrency = 'USD',
         orderId = uuidv4(),
         orderDescription = 'Cryptocurrency Payment',
-        customerEmail = ''
+        customerEmail = '',
+        successUrl,
+        failureUrl,
+        cancelUrl
       } = invoiceData;
+
+      // Determine success and cancel URLs - use custom ones if provided, otherwise use defaults
+      const finalSuccessUrl = successUrl || failureUrl || `${this.domainUrl}${config.callbacks.success}`;
+      const finalCancelUrl = cancelUrl || failureUrl || `${this.domainUrl}${config.callbacks.cancel}`;
+      
+      console.log('🔗 URL Configuration:', {
+        successUrl: finalSuccessUrl,
+        cancelUrl: finalCancelUrl,
+        isCustomSuccess: !!successUrl,
+        isCustomCancel: !!cancelUrl,
+        isCustomFailure: !!failureUrl
+      });
 
       const requestData = {
         public_key: this.publicKey,
@@ -137,8 +155,8 @@ class PayID19Service {
         order_id: orderId,
         order_description: orderDescription,
         callback_url: `${this.domainUrl}${config.callbacks.callback}`,
-        success_url: `${this.domainUrl}${config.callbacks.success}`,
-        cancel_url: `${this.domainUrl}${config.callbacks.cancel}`
+        success_url: finalSuccessUrl,
+        cancel_url: finalCancelUrl
       };
 
       if (customerEmail) {
@@ -155,7 +173,12 @@ class PayID19Service {
         callback_url: requestData.callback_url,
         success_url: requestData.success_url,
         cancel_url: requestData.cancel_url,
-        customer_email: requestData.customer_email || 'not provided'
+        customer_email: requestData.customer_email || 'not provided',
+        custom_urls: {
+          success: !!successUrl,
+          cancel: !!cancelUrl,
+          failure: !!failureUrl
+        }
       });
 
       console.log('🌐 Making API request to:', `${this.apiUrl}/create_invoice`);

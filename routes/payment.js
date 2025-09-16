@@ -16,7 +16,10 @@ router.post('/create-invoice', async (req, res) => {
       priceCurrency = 'USD',
       orderId,
       orderDescription,
-      customerEmail
+      customerEmail,
+      successUrl,
+      failureUrl,
+      cancelUrl
     } = req.body;
 
     // Validate required fields
@@ -34,6 +37,29 @@ router.post('/create-invoice', async (req, res) => {
       });
     }
 
+    // Validate URL formats if provided
+    const urlValidation = (url, fieldName) => {
+      if (url) {
+        try {
+          new URL(url);
+        } catch (error) {
+          return `${fieldName} must be a valid URL`;
+        }
+      }
+      return null;
+    };
+
+    const successUrlError = urlValidation(successUrl, 'successUrl');
+    const failureUrlError = urlValidation(failureUrl, 'failureUrl');
+    const cancelUrlError = urlValidation(cancelUrl, 'cancelUrl');
+
+    if (successUrlError || failureUrlError || cancelUrlError) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: successUrlError || failureUrlError || cancelUrlError
+      });
+    }
+
     // Generate order ID if not provided
     const finalOrderId = orderId || `order_${uuidv4()}`;
 
@@ -41,7 +67,10 @@ router.post('/create-invoice', async (req, res) => {
       priceAmount,
       priceCurrency,
       orderDescription,
-      customerEmail: customerEmail ? '***@***.***' : 'not provided'
+      customerEmail: customerEmail ? '***@***.***' : 'not provided',
+      successUrl: successUrl || 'default',
+      failureUrl: failureUrl || 'default',
+      cancelUrl: cancelUrl || 'default'
     });
 
     // Create invoice using PayID19 service
@@ -51,7 +80,10 @@ router.post('/create-invoice', async (req, res) => {
       priceCurrency,
       orderId: finalOrderId,
       orderDescription: orderDescription || `Payment for order ${finalOrderId}`,
-      customerEmail
+      customerEmail,
+      successUrl,
+      failureUrl,
+      cancelUrl
     });
 
     console.log(`📊 PayID19Service.createInvoice() result for order ${finalOrderId}:`);
