@@ -11,6 +11,7 @@ const payid19Service = new PayID19Service();
  */
 router.post('/create-invoice', async (req, res) => {
   try {
+    console.log('💳 Creating invoice for order raw body:', req.body);
     const {
       priceAmount,
       priceCurrency = 'USD',
