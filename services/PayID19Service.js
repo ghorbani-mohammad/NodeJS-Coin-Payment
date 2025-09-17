@@ -136,8 +136,8 @@ class PayID19Service {
       } = invoiceData;
 
       // Determine success and cancel URLs - use custom ones if provided, otherwise use defaults
-      const finalSuccessUrl = successUrl || failureUrl || `${this.domainUrl}${config.callbacks.success}`;
-      const finalCancelUrl = cancelUrl || failureUrl || `${this.domainUrl}${config.callbacks.cancel}`;
+      const finalSuccessUrl = successUrl || `${this.domainUrl}${config.callbacks.success}`;
+      const finalCancelUrl = cancelUrl || `${this.domainUrl}${config.callbacks.cancel}`;
       
       console.log('🔗 URL Configuration:', {
         successUrl: finalSuccessUrl,
