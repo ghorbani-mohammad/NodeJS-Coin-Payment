@@ -76,6 +76,8 @@ app.get('/', (req, res) => {
 
 // Payment success page
 app.get('/payment/success', async (req, res) => {
+  console.log('Payment success page');
+  console.log(req.query);
   const { order_id, invoice_id, status, return_url } = req.query;
   
   // Determine the return URL - prioritize return_url parameter, fallback to root
@@ -175,6 +177,8 @@ app.get('/payment/success', async (req, res) => {
 
 // Payment cancel page
 app.get('/payment/cancel', async (req, res) => {
+  console.log('Payment cancel page');
+  console.log(req.query);
   const { order_id, invoice_id, return_url } = req.query;
   
   // Determine the return URL - prioritize return_url parameter, fallback to root
