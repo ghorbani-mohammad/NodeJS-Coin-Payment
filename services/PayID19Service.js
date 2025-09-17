@@ -135,22 +135,27 @@ class PayID19Service {
         cancelUrl
       } = invoiceData;
 
-      // Determine success and cancel URLs - use custom ones if provided, otherwise use defaults
-      let finalSuccessUrl = successUrl || `${this.domainUrl}${config.callbacks.success}`;
-      let finalCancelUrl = cancelUrl || `${this.domainUrl}${config.callbacks.cancel}`;
+      // Determine success and cancel URLs
+      // If custom URLs are provided (frontend URLs), redirect through our endpoints with return_url parameter
+      // If no custom URLs provided, use our default endpoints directly
+      let finalSuccessUrl, finalCancelUrl;
       
-      // If a custom successUrl is provided (frontend application URL), 
-      // append it as return_url parameter to our success endpoint for automatic redirection
       if (successUrl) {
-        const separator = finalSuccessUrl.includes('?') ? '&' : '?';
-        finalSuccessUrl = `${this.domainUrl}${config.callbacks.success}${separator}return_url=${encodeURIComponent(successUrl)}`;
+        // Frontend provided a success URL - redirect through our success page with auto-redirect
+        const separator = successUrl.includes('?') ? '&' : '?';
+        finalSuccessUrl = `${this.domainUrl}${config.callbacks.success}?return_url=${encodeURIComponent(successUrl)}`;
+      } else {
+        // No custom success URL - use our default success page
+        finalSuccessUrl = `${this.domainUrl}${config.callbacks.success}`;
       }
       
-      // If a custom cancelUrl is provided (frontend application URL), 
-      // append it as return_url parameter to our cancel endpoint for automatic redirection
       if (cancelUrl) {
-        const separator = finalCancelUrl.includes('?') ? '&' : '?';
-        finalCancelUrl = `${this.domainUrl}${config.callbacks.cancel}${separator}return_url=${encodeURIComponent(cancelUrl)}`;
+        // Frontend provided a cancel URL - redirect through our cancel page with auto-redirect  
+        const separator = cancelUrl.includes('?') ? '&' : '?';
+        finalCancelUrl = `${this.domainUrl}${config.callbacks.cancel}?return_url=${encodeURIComponent(cancelUrl)}`;
+      } else {
+        // No custom cancel URL - use our default cancel page
+        finalCancelUrl = `${this.domainUrl}${config.callbacks.cancel}`;
       }
       
       console.log('🔗 URL Configuration:', {
