@@ -70,9 +70,6 @@ app.get('/', (req, res) => {
       health: '/health',
       createInvoice: '/api/payment/create-invoice',
       getInvoices: '/api/payment/invoices',
-      getBalance: '/api/payment/balance',
-      getCurrencies: '/api/payment/currencies',
-      webhook: '/api/webhook/callback'
     }
   });
 });
