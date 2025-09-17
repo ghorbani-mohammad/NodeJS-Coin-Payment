@@ -24,13 +24,26 @@ router.post('/callback', async (req, res) => {
     const callbackData = req.body;
     
     // Validate required fields
-    if (!callbackData.order_id || !callbackData.invoice_id) {
-      console.error('❌ Invalid webhook data: missing required fields');
+    if (!callbackData.order_id) {
+      console.error('❌ Invalid webhook data: missing order_id');
       return res.status(400).json({
         error: 'Invalid webhook data',
-        message: 'Missing required fields: order_id, invoice_id'
+        message: 'Missing required field: order_id'
       });
     }
+
+    // Use 'id' field as invoice_id if invoice_id is not present
+    const invoiceId = callbackData.invoice_id || callbackData.id;
+    if (!invoiceId) {
+      console.error('❌ Invalid webhook data: missing invoice_id or id');
+      return res.status(400).json({
+        error: 'Invalid webhook data',
+        message: 'Missing required field: invoice_id or id'
+      });
+    }
+
+    // Add invoice_id to callbackData for consistency
+    callbackData.invoice_id = invoiceId;
 
     // Verify the callback signature if provided
     const signature = req.get('X-Payid19-Signature') || req.get('signature');
