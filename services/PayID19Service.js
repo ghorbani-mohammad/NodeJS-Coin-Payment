@@ -167,6 +167,20 @@ class PayID19Service {
         isCustomCancel: !!cancelUrl,
         isCustomFailure: !!failureUrl
       });
+      
+      console.log('🔍 URL Details:');
+      console.log('  - Success URL components:', {
+        domain: this.domainUrl,
+        callback: config.callbacks.success,
+        orderId: orderId,
+        returnUrl: successUrl
+      });
+      console.log('  - Cancel URL components:', {
+        domain: this.domainUrl,
+        callback: config.callbacks.cancel,
+        orderId: orderId,
+        returnUrl: cancelUrl
+      });
 
       const requestData = {
         public_key: this.publicKey,

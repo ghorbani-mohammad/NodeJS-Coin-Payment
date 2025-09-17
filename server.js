@@ -80,13 +80,26 @@ app.get('/payment/success', async (req, res) => {
   console.log(req.query);
   const { order_id, invoice_id, status, return_url } = req.query;
   
+  // Handle URL encoding issues - check for malformed return_url parameter
+  let actualReturnUrl = return_url;
+  if (!actualReturnUrl) {
+    // Check for the malformed parameter that appears as 'amp;return_url'
+    const malformedKey = Object.keys(req.query).find(key => key.includes('return_url'));
+    if (malformedKey) {
+      actualReturnUrl = req.query[malformedKey];
+      console.log('Found malformed return_url parameter:', malformedKey, '=', actualReturnUrl);
+    }
+  }
+  
   // Determine the return URL - prioritize return_url parameter, fallback to root
-  const returnUrl = return_url || '/';
+  const returnUrl = actualReturnUrl || '/';
   
   console.log('Success page redirect info:', {
     return_url,
+    actualReturnUrl,
     returnUrl,
     hasReturnUrl: !!return_url,
+    hasActualReturnUrl: !!actualReturnUrl,
     willShowRedirect: returnUrl && returnUrl !== '/'
   });
   
@@ -188,13 +201,26 @@ app.get('/payment/cancel', async (req, res) => {
   console.log(req.query);
   const { order_id, invoice_id, return_url } = req.query;
   
+  // Handle URL encoding issues - check for malformed return_url parameter
+  let actualReturnUrl = return_url;
+  if (!actualReturnUrl) {
+    // Check for the malformed parameter that appears as 'amp;return_url'
+    const malformedKey = Object.keys(req.query).find(key => key.includes('return_url'));
+    if (malformedKey) {
+      actualReturnUrl = req.query[malformedKey];
+      console.log('Found malformed return_url parameter:', malformedKey, '=', actualReturnUrl);
+    }
+  }
+  
   // Determine the return URL - prioritize return_url parameter, fallback to root
-  const returnUrl = return_url || '/';
+  const returnUrl = actualReturnUrl || '/';
   
   console.log('Cancel page redirect info:', {
     return_url,
+    actualReturnUrl,
     returnUrl,
     hasReturnUrl: !!return_url,
+    hasActualReturnUrl: !!actualReturnUrl,
     willShowRedirect: returnUrl && returnUrl !== '/'
   });
   
