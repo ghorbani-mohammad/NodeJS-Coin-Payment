@@ -77,7 +77,16 @@ app.get('/', (req, res) => {
 // Payment success page
 app.get('/payment/success', async (req, res) => {
   console.log('Payment success page');
-  console.log(req.query);
+  console.log('Request data:', {
+    query: req.query,
+    body: req.body,
+    params: req.params,
+    headers: req.headers,
+    cookies: req.cookies,
+    ip: req.ip,
+    method: req.method,
+    url: req.originalUrl
+  });
   const { order_id, invoice_id, status, return_url } = req.query;
   
   // Handle URL encoding issues - check for malformed return_url parameter
