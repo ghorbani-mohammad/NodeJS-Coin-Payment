@@ -12,16 +12,24 @@ const webhookRoutes = require('./routes/webhook');
 const app = express();
 const PORT = config.server.port;
 
-// Security middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-      "script-src": ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`],
-      "script-src-attr": [(req, res) => `'nonce-${res.locals.nonce}'`],
+// Generate nonce for CSP first
+app.use((req, res, next) => {
+  res.locals.nonce = require('crypto').randomBytes(16).toString('base64');
+  next();
+});
+
+// Security middleware with dynamic CSP
+app.use((req, res, next) => {
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", `'nonce-${res.locals.nonce}'`],
+        "script-src-attr": [`'nonce-${res.locals.nonce}'`],
+      },
     },
-  },
-}));
+  })(req, res, next);
+});
 
 // CORS configuration
 app.use(cors({
@@ -30,12 +38,6 @@ app.use(cors({
     : ['http://localhost:3000', 'http://127.0.0.1:3000'],
   credentials: true
 }));
-
-// Generate nonce for CSP
-app.use((req, res, next) => {
-  res.locals.nonce = require('crypto').randomBytes(16).toString('base64');
-  next();
-});
 
 // Body parsing middleware
 app.use(bodyParser.json({ limit: '10mb' }));
