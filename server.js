@@ -113,22 +113,59 @@ app.get('/payment/success', async (req, res) => {
   
   if (order_id && !invoice_id) {
     try {
+      console.log(`🔍 Success page: Fetching invoice information for order_id: ${order_id}`);
       const PayID19Service = require('./services/PayID19Service');
       const payid19Service = new PayID19Service();
       const invoiceResult = await payid19Service.getInvoices(order_id);
       
+      console.log(`📋 Success page: Invoice API result:`, {
+        success: invoiceResult.success,
+        hasData: !!invoiceResult.data,
+        dataType: Array.isArray(invoiceResult.data) ? 'array' : typeof invoiceResult.data,
+        dataLength: Array.isArray(invoiceResult.data) ? invoiceResult.data.length : 'not array',
+        error: invoiceResult.error
+      });
+      
       if (invoiceResult.success && invoiceResult.data) {
         const invoiceData = Array.isArray(invoiceResult.data) ? invoiceResult.data[0] : invoiceResult.data;
+        console.log(`📄 Success page: Invoice data:`, {
+          hasInvoiceData: !!invoiceData,
+          invoice_id: invoiceData?.invoice_id,
+          id: invoiceData?.id,
+          order_id: invoiceData?.order_id,
+          status: invoiceData?.status
+        });
+        
         if (invoiceData) {
           finalInvoiceId = invoiceData.invoice_id || invoiceData.id;
+          console.log(`✅ Success page: Set finalInvoiceId to: ${finalInvoiceId}`);
           if (!finalStatus) {
             finalStatus = invoiceData.status;
+            console.log(`✅ Success page: Set finalStatus to: ${finalStatus}`);
           }
+        } else {
+          console.log(`❌ Success page: No invoice data found`);
         }
+      } else {
+        console.log(`❌ Success page: API call failed:`, {
+          success: invoiceResult.success,
+          error: invoiceResult.error,
+          message: invoiceResult.message
+        });
       }
     } catch (error) {
-      console.error('Error fetching invoice information:', error);
+      console.error('❌ Success page: Error fetching invoice information:', error);
     }
+  } else {
+    console.log(`📋 Success page: Parameters received:`, {
+      order_id,
+      invoice_id,
+      status,
+      hasOrderId: !!order_id,
+      hasInvoiceId: !!invoice_id,
+      hasStatus: !!status,
+      willFetchFromAPI: !!(order_id && !invoice_id)
+    });
   }
   
   res.send(`
@@ -233,19 +270,52 @@ app.get('/payment/cancel', async (req, res) => {
   
   if (order_id && !invoice_id) {
     try {
+      console.log(`🔍 Cancel page: Fetching invoice information for order_id: ${order_id}`);
       const PayID19Service = require('./services/PayID19Service');
       const payid19Service = new PayID19Service();
       const invoiceResult = await payid19Service.getInvoices(order_id);
       
+      console.log(`📋 Cancel page: Invoice API result:`, {
+        success: invoiceResult.success,
+        hasData: !!invoiceResult.data,
+        dataType: Array.isArray(invoiceResult.data) ? 'array' : typeof invoiceResult.data,
+        dataLength: Array.isArray(invoiceResult.data) ? invoiceResult.data.length : 'not array',
+        error: invoiceResult.error
+      });
+      
       if (invoiceResult.success && invoiceResult.data) {
         const invoiceData = Array.isArray(invoiceResult.data) ? invoiceResult.data[0] : invoiceResult.data;
+        console.log(`📄 Cancel page: Invoice data:`, {
+          hasInvoiceData: !!invoiceData,
+          invoice_id: invoiceData?.invoice_id,
+          id: invoiceData?.id,
+          order_id: invoiceData?.order_id
+        });
+        
         if (invoiceData) {
           finalInvoiceId = invoiceData.invoice_id || invoiceData.id;
+          console.log(`✅ Cancel page: Set finalInvoiceId to: ${finalInvoiceId}`);
+        } else {
+          console.log(`❌ Cancel page: No invoice data found`);
         }
+      } else {
+        console.log(`❌ Cancel page: API call failed:`, {
+          success: invoiceResult.success,
+          error: invoiceResult.error,
+          message: invoiceResult.message
+        });
       }
     } catch (error) {
-      console.error('Error fetching invoice information:', error);
+      console.error('❌ Cancel page: Error fetching invoice information:', error);
     }
+  } else {
+    console.log(`📋 Cancel page: Parameters received:`, {
+      order_id,
+      invoice_id,
+      hasOrderId: !!order_id,
+      hasInvoiceId: !!invoice_id,
+      willFetchFromAPI: !!(order_id && !invoice_id)
+    });
   }
   
   res.send(`
@@ -334,14 +404,6 @@ app.listen(PORT, () => {
   console.log(`🌐 Domain: ${config.domain.url}`);
   console.log(`📊 Environment: ${config.server.nodeEnv}`);
   console.log(`💰 PayID19 API: ${config.payid19.apiUrl}`);
-  
-  if (config.server.nodeEnv === 'development') {
-    console.log(`\n📋 Available endpoints:`);
-    console.log(`   Health Check: http://localhost:${PORT}/health`);
-    console.log(`   API Docs: http://localhost:${PORT}/`);
-    console.log(`   Create Invoice: POST http://localhost:${PORT}/api/payment/create-invoice`);
-    console.log(`   Webhook: POST http://localhost:${PORT}/api/webhook/callback`);
-  }
 });
 
 module.exports = app;
