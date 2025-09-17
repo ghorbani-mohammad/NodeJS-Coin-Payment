@@ -152,6 +152,54 @@ app.get('/payment/success', async (req, res) => {
           error: invoiceResult.error,
           message: invoiceResult.message
         });
+        
+        // Try to extract invoice information from the error field
+        if (invoiceResult.error) {
+          try {
+            // The error might be a JSON string containing invoice data
+            let invoiceDataFromError = null;
+            
+            if (typeof invoiceResult.error === 'string') {
+              // Try to parse as JSON array first (common format)
+              if (invoiceResult.error.startsWith('[') && invoiceResult.error.endsWith(']')) {
+                const parsedArray = JSON.parse(invoiceResult.error);
+                if (Array.isArray(parsedArray) && parsedArray.length > 0) {
+                  invoiceDataFromError = parsedArray[0];
+                }
+              }
+              // Try to parse as JSON object
+              else if (invoiceResult.error.startsWith('{') && invoiceResult.error.endsWith('}')) {
+                invoiceDataFromError = JSON.parse(invoiceResult.error);
+              }
+            } else if (typeof invoiceResult.error === 'object') {
+              invoiceDataFromError = invoiceResult.error;
+            }
+            
+            if (invoiceDataFromError) {
+              console.log(`📄 Success page: Extracted invoice data from error:`, {
+                hasInvoiceData: !!invoiceDataFromError,
+                alias: invoiceDataFromError?.alias,
+                id: invoiceDataFromError?.id,
+                order_id: invoiceDataFromError?.order_id,
+                status: invoiceDataFromError?.status
+              });
+              
+              // Use alias as invoice_id if available, fallback to id
+              finalInvoiceId = invoiceDataFromError.alias || invoiceDataFromError.id;
+              if (finalInvoiceId) {
+                console.log(`✅ Success page: Extracted finalInvoiceId from error: ${finalInvoiceId}`);
+              }
+              
+              // Also extract status if not already set
+              if (!finalStatus && invoiceDataFromError.status) {
+                finalStatus = invoiceDataFromError.status;
+                console.log(`✅ Success page: Extracted finalStatus from error: ${finalStatus}`);
+              }
+            }
+          } catch (parseError) {
+            console.error('❌ Success page: Error parsing invoice data from error field:', parseError);
+          }
+        }
       }
     } catch (error) {
       console.error('❌ Success page: Error fetching invoice information:', error);
@@ -304,6 +352,47 @@ app.get('/payment/cancel', async (req, res) => {
           error: invoiceResult.error,
           message: invoiceResult.message
         });
+        
+        // Try to extract invoice information from the error field
+        if (invoiceResult.error) {
+          try {
+            // The error might be a JSON string containing invoice data
+            let invoiceDataFromError = null;
+            
+            if (typeof invoiceResult.error === 'string') {
+              // Try to parse as JSON array first (common format)
+              if (invoiceResult.error.startsWith('[') && invoiceResult.error.endsWith(']')) {
+                const parsedArray = JSON.parse(invoiceResult.error);
+                if (Array.isArray(parsedArray) && parsedArray.length > 0) {
+                  invoiceDataFromError = parsedArray[0];
+                }
+              }
+              // Try to parse as JSON object
+              else if (invoiceResult.error.startsWith('{') && invoiceResult.error.endsWith('}')) {
+                invoiceDataFromError = JSON.parse(invoiceResult.error);
+              }
+            } else if (typeof invoiceResult.error === 'object') {
+              invoiceDataFromError = invoiceResult.error;
+            }
+            
+            if (invoiceDataFromError) {
+              console.log(`📄 Cancel page: Extracted invoice data from error:`, {
+                hasInvoiceData: !!invoiceDataFromError,
+                alias: invoiceDataFromError?.alias,
+                id: invoiceDataFromError?.id,
+                order_id: invoiceDataFromError?.order_id
+              });
+              
+              // Use alias as invoice_id if available, fallback to id
+              finalInvoiceId = invoiceDataFromError.alias || invoiceDataFromError.id;
+              if (finalInvoiceId) {
+                console.log(`✅ Cancel page: Extracted finalInvoiceId from error: ${finalInvoiceId}`);
+              }
+            }
+          } catch (parseError) {
+            console.error('❌ Cancel page: Error parsing invoice data from error field:', parseError);
+          }
+        }
       }
     } catch (error) {
       console.error('❌ Cancel page: Error fetching invoice information:', error);

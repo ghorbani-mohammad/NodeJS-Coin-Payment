@@ -365,10 +365,27 @@ class PayID19Service {
       }
     } catch (error) {
       console.error('Error retrieving invoices:', error.response?.data || error.message);
+      
+      // Include full response data in error field as it might contain invoice information
+      let errorData = error.response?.data?.message || error.message;
+      
+      // If the response data contains result field (which might be invoice data), include it
+      if (error.response?.data?.result) {
+        errorData = JSON.stringify(error.response.data.result);
+      } else if (error.response?.data && typeof error.response.data === 'object') {
+        // If response data is an object but not the expected format, stringify it
+        errorData = JSON.stringify(error.response.data);
+      }
+      
       return {
         success: false,
-        error: error.response?.data?.message || error.message,
-        message: 'Failed to retrieve invoices'
+        error: errorData,
+        message: 'Failed to retrieve invoices',
+        debug: {
+          originalError: error.message,
+          responseStatus: error.response?.status,
+          responseData: error.response?.data
+        }
       };
     }
   }
