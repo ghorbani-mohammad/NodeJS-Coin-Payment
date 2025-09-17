@@ -101,7 +101,7 @@ app.get('/payment/success', async (req, res) => {
   }
   
   // Determine the return URL - prioritize return_url parameter, fallback to root
-  const returnUrl = actualReturnUrl || '/';
+  let returnUrl = actualReturnUrl || '/';
   
   console.log('Success page redirect info:', {
     return_url,
@@ -225,6 +225,13 @@ app.get('/payment/success', async (req, res) => {
     });
   }
   
+  // Update return URL to include invoice_id if we have it and it's a custom return URL
+  if (finalInvoiceId && returnUrl && returnUrl !== '/') {
+    const separator = returnUrl.includes('?') ? '&' : '?';
+    returnUrl = `${returnUrl}${separator}invoice_id=${encodeURIComponent(finalInvoiceId)}`;
+    console.log(`✅ Success page: Updated return URL with invoice_id: ${returnUrl}`);
+  }
+  
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -307,7 +314,7 @@ app.get('/payment/cancel', async (req, res) => {
   }
   
   // Determine the return URL - prioritize return_url parameter, fallback to root
-  const returnUrl = actualReturnUrl || '/';
+  let returnUrl = actualReturnUrl || '/';
   
   console.log('Cancel page redirect info:', {
     return_url,
@@ -414,6 +421,13 @@ app.get('/payment/cancel', async (req, res) => {
       hasInvoiceId: !!invoice_id,
       willFetchFromAPI: !!(order_id && !invoice_id)
     });
+  }
+  
+  // Update return URL to include invoice_id if we have it and it's a custom return URL
+  if (finalInvoiceId && returnUrl && returnUrl !== '/') {
+    const separator = returnUrl.includes('?') ? '&' : '?';
+    returnUrl = `${returnUrl}${separator}invoice_id=${encodeURIComponent(finalInvoiceId)}`;
+    console.log(`✅ Cancel page: Updated return URL with invoice_id: ${returnUrl}`);
   }
   
   res.send(`
