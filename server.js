@@ -63,7 +63,33 @@ app.get('/', (req, res) => {
 
 // Payment success page
 app.get('/payment/success', (req, res) => {
-  const { order_id, invoice_id, status } = req.query;
+  const { order_id, invoice_id, status, return_url } = req.query;
+  
+  // Determine the return URL - prioritize return_url parameter, fallback to root
+  const returnUrl = return_url || '/';
+  
+  // If return_url is provided, automatically redirect after 5 seconds (longer for success)
+  const autoRedirect = return_url ? `
+    <script>
+      let countdown = 5;
+      const countdownElement = document.getElementById('countdown');
+      const redirectTimer = setInterval(() => {
+        countdownElement.textContent = countdown;
+        countdown--;
+        if (countdown < 0) {
+          clearInterval(redirectTimer);
+          window.location.href = '${returnUrl}';
+        }
+      }, 1000);
+      
+      // Allow immediate redirect on button click
+      function redirectNow() {
+        clearInterval(redirectTimer);
+        window.location.href = '${returnUrl}';
+      }
+    </script>
+  ` : '';
+  
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -76,6 +102,10 @@ app.get('/payment/success', (req, res) => {
         .success { color: #28a745; }
         .container { background: #f8f9fa; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .details { background: white; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .btn { display: inline-block; padding: 10px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; cursor: pointer; border: none; }
+        .btn:hover { background: #1e7e34; }
+        .redirect-info { background: #d4edda; padding: 15px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #28a745; }
+        .countdown { font-weight: bold; color: #28a745; }
       </style>
     </head>
     <body>
@@ -88,7 +118,16 @@ app.get('/payment/success', (req, res) => {
           <p><strong>Status:</strong> ${status || 'Completed'}</p>
         </div>
         <p>Thank you for your payment!</p>
+        ${return_url ? `
+          <div class="redirect-info">
+            <p>🔄 Automatically redirecting you back to the application in <span id="countdown" class="countdown">5</span> seconds...</p>
+          </div>
+          <button onclick="redirectNow()" class="btn">Return to Application Now</button>
+        ` : `
+          <a href="${returnUrl}" class="btn">Continue</a>
+        `}
       </div>
+      ${autoRedirect}
     </body>
     </html>
   `);
@@ -96,7 +135,33 @@ app.get('/payment/success', (req, res) => {
 
 // Payment cancel page
 app.get('/payment/cancel', (req, res) => {
-  const { order_id, invoice_id } = req.query;
+  const { order_id, invoice_id, return_url } = req.query;
+  
+  // Determine the return URL - prioritize return_url parameter, fallback to root
+  const returnUrl = return_url || '/';
+  
+  // If return_url is provided, automatically redirect after 3 seconds
+  const autoRedirect = return_url ? `
+    <script>
+      let countdown = 3;
+      const countdownElement = document.getElementById('countdown');
+      const redirectTimer = setInterval(() => {
+        countdownElement.textContent = countdown;
+        countdown--;
+        if (countdown < 0) {
+          clearInterval(redirectTimer);
+          window.location.href = '${returnUrl}';
+        }
+      }, 1000);
+      
+      // Allow immediate redirect on button click
+      function redirectNow() {
+        clearInterval(redirectTimer);
+        window.location.href = '${returnUrl}';
+      }
+    </script>
+  ` : '';
+  
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -109,7 +174,10 @@ app.get('/payment/cancel', (req, res) => {
         .cancel { color: #dc3545; }
         .container { background: #f8f9fa; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .details { background: white; padding: 20px; margin: 20px 0; border-radius: 5px; }
-        .btn { display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .btn { display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; cursor: pointer; border: none; }
+        .btn:hover { background: #0056b3; }
+        .redirect-info { background: #e7f3ff; padding: 15px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #007bff; }
+        .countdown { font-weight: bold; color: #007bff; }
       </style>
     </head>
     <body>
@@ -121,8 +189,16 @@ app.get('/payment/cancel', (req, res) => {
           <p><strong>Invoice ID:</strong> ${invoice_id || 'N/A'}</p>
         </div>
         <p>You can try again or contact support if you need assistance.</p>
-        <a href="/" class="btn">Return to Home</a>
+        ${return_url ? `
+          <div class="redirect-info">
+            <p>🔄 Automatically redirecting you back to the application in <span id="countdown" class="countdown">3</span> seconds...</p>
+          </div>
+          <button onclick="redirectNow()" class="btn">Return to Application Now</button>
+        ` : `
+          <a href="${returnUrl}" class="btn">Return to Home</a>
+        `}
       </div>
+      ${autoRedirect}
     </body>
     </html>
   `);

@@ -136,12 +136,28 @@ class PayID19Service {
       } = invoiceData;
 
       // Determine success and cancel URLs - use custom ones if provided, otherwise use defaults
-      const finalSuccessUrl = successUrl || `${this.domainUrl}${config.callbacks.success}`;
-      const finalCancelUrl = cancelUrl || `${this.domainUrl}${config.callbacks.cancel}`;
+      let finalSuccessUrl = successUrl || `${this.domainUrl}${config.callbacks.success}`;
+      let finalCancelUrl = cancelUrl || `${this.domainUrl}${config.callbacks.cancel}`;
+      
+      // If a custom successUrl is provided (frontend application URL), 
+      // append it as return_url parameter to our success endpoint for automatic redirection
+      if (successUrl) {
+        const separator = finalSuccessUrl.includes('?') ? '&' : '?';
+        finalSuccessUrl = `${this.domainUrl}${config.callbacks.success}${separator}return_url=${encodeURIComponent(successUrl)}`;
+      }
+      
+      // If a custom cancelUrl is provided (frontend application URL), 
+      // append it as return_url parameter to our cancel endpoint for automatic redirection
+      if (cancelUrl) {
+        const separator = finalCancelUrl.includes('?') ? '&' : '?';
+        finalCancelUrl = `${this.domainUrl}${config.callbacks.cancel}${separator}return_url=${encodeURIComponent(cancelUrl)}`;
+      }
       
       console.log('🔗 URL Configuration:', {
         successUrl: finalSuccessUrl,
         cancelUrl: finalCancelUrl,
+        originalSuccessUrl: successUrl,
+        originalCancelUrl: cancelUrl,
         isCustomSuccess: !!successUrl,
         isCustomCancel: !!cancelUrl,
         isCustomFailure: !!failureUrl
