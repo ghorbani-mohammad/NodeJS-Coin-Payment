@@ -210,10 +210,6 @@ router.get('/health', (req, res) => {
     endpoints: {
       createInvoice: 'POST /api/payment/create-invoice',
       getInvoices: 'GET /api/payment/invoices',
-      getBalance: 'GET /api/payment/balance',
-      getCurrencies: 'GET /api/payment/currencies',
-      createWithdraw: 'POST /api/payment/withdraw',
-      getWithdraws: 'GET /api/payment/withdraws'
     }
   });
 });
