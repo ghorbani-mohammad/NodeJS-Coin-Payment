@@ -143,19 +143,19 @@ class PayID19Service {
       if (successUrl) {
         // Frontend provided a success URL - redirect through our success page with auto-redirect
         const separator = successUrl.includes('?') ? '&' : '?';
-        finalSuccessUrl = `${this.domainUrl}${config.callbacks.success}?return_url=${encodeURIComponent(successUrl)}`;
+        finalSuccessUrl = `${this.domainUrl}${config.callbacks.success}?order_id=${encodeURIComponent(orderId)}&return_url=${encodeURIComponent(successUrl)}`;
       } else {
         // No custom success URL - use our default success page
-        finalSuccessUrl = `${this.domainUrl}${config.callbacks.success}`;
+        finalSuccessUrl = `${this.domainUrl}${config.callbacks.success}?order_id=${encodeURIComponent(orderId)}`;
       }
       
       if (cancelUrl) {
         // Frontend provided a cancel URL - redirect through our cancel page with auto-redirect  
         const separator = cancelUrl.includes('?') ? '&' : '?';
-        finalCancelUrl = `${this.domainUrl}${config.callbacks.cancel}?return_url=${encodeURIComponent(cancelUrl)}`;
+        finalCancelUrl = `${this.domainUrl}${config.callbacks.cancel}?order_id=${encodeURIComponent(orderId)}&return_url=${encodeURIComponent(cancelUrl)}`;
       } else {
         // No custom cancel URL - use our default cancel page
-        finalCancelUrl = `${this.domainUrl}${config.callbacks.cancel}`;
+        finalCancelUrl = `${this.domainUrl}${config.callbacks.cancel}?order_id=${encodeURIComponent(orderId)}`;
       }
       
       console.log('🔗 URL Configuration:', {
