@@ -68,27 +68,8 @@ app.get('/payment/success', (req, res) => {
   // Determine the return URL - prioritize return_url parameter, fallback to root
   const returnUrl = return_url || '/';
   
-  // If return_url is provided, automatically redirect after 5 seconds (longer for success)
-  const autoRedirect = return_url ? `
-    <script>
-      let countdown = 5;
-      const countdownElement = document.getElementById('countdown');
-      const redirectTimer = setInterval(() => {
-        countdownElement.textContent = countdown;
-        countdown--;
-        if (countdown < 0) {
-          clearInterval(redirectTimer);
-          window.location.href = '${returnUrl}';
-        }
-      }, 1000);
-      
-      // Allow immediate redirect on button click
-      function redirectNow() {
-        clearInterval(redirectTimer);
-        window.location.href = '${returnUrl}';
-      }
-    </script>
-  ` : '';
+  // Generate a nonce for CSP compliance
+  const nonce = require('crypto').randomBytes(16).toString('base64');
   
   res.send(`
     <!DOCTYPE html>
@@ -97,6 +78,7 @@ app.get('/payment/success', (req, res) => {
       <title>Payment Successful</title>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'nonce-${nonce}'; script-src-attr 'nonce-${nonce}';">
       <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
         .success { color: #28a745; }
@@ -122,12 +104,33 @@ app.get('/payment/success', (req, res) => {
           <div class="redirect-info">
             <p>🔄 Automatically redirecting you back to the application in <span id="countdown" class="countdown">5</span> seconds...</p>
           </div>
-          <button onclick="redirectNow()" class="btn">Return to Application Now</button>
+          <button id="redirectBtn" class="btn" nonce="${nonce}">Return to Application Now</button>
         ` : `
           <a href="${returnUrl}" class="btn">Continue</a>
         `}
       </div>
-      ${autoRedirect}
+      ${return_url ? `
+        <script nonce="${nonce}">
+          let countdown = 5;
+          const countdownElement = document.getElementById('countdown');
+          const redirectBtn = document.getElementById('redirectBtn');
+          const returnUrl = '${returnUrl}';
+          
+          const redirectTimer = setInterval(() => {
+            countdownElement.textContent = countdown;
+            countdown--;
+            if (countdown < 0) {
+              clearInterval(redirectTimer);
+              window.location.href = returnUrl;
+            }
+          }, 1000);
+          
+          redirectBtn.addEventListener('click', function() {
+            clearInterval(redirectTimer);
+            window.location.href = returnUrl;
+          });
+        </script>
+      ` : ''}
     </body>
     </html>
   `);
@@ -140,27 +143,8 @@ app.get('/payment/cancel', (req, res) => {
   // Determine the return URL - prioritize return_url parameter, fallback to root
   const returnUrl = return_url || '/';
   
-  // If return_url is provided, automatically redirect after 3 seconds
-  const autoRedirect = return_url ? `
-    <script>
-      let countdown = 3;
-      const countdownElement = document.getElementById('countdown');
-      const redirectTimer = setInterval(() => {
-        countdownElement.textContent = countdown;
-        countdown--;
-        if (countdown < 0) {
-          clearInterval(redirectTimer);
-          window.location.href = '${returnUrl}';
-        }
-      }, 1000);
-      
-      // Allow immediate redirect on button click
-      function redirectNow() {
-        clearInterval(redirectTimer);
-        window.location.href = '${returnUrl}';
-      }
-    </script>
-  ` : '';
+  // Generate a nonce for CSP compliance
+  const nonce = require('crypto').randomBytes(16).toString('base64');
   
   res.send(`
     <!DOCTYPE html>
@@ -169,6 +153,7 @@ app.get('/payment/cancel', (req, res) => {
       <title>Payment Cancelled</title>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'nonce-${nonce}'; script-src-attr 'nonce-${nonce}';">
       <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
         .cancel { color: #dc3545; }
@@ -193,12 +178,33 @@ app.get('/payment/cancel', (req, res) => {
           <div class="redirect-info">
             <p>🔄 Automatically redirecting you back to the application in <span id="countdown" class="countdown">3</span> seconds...</p>
           </div>
-          <button onclick="redirectNow()" class="btn">Return to Application Now</button>
+          <button id="redirectBtn" class="btn" nonce="${nonce}">Return to Application Now</button>
         ` : `
           <a href="${returnUrl}" class="btn">Return to Home</a>
         `}
       </div>
-      ${autoRedirect}
+      ${return_url ? `
+        <script nonce="${nonce}">
+          let countdown = 3;
+          const countdownElement = document.getElementById('countdown');
+          const redirectBtn = document.getElementById('redirectBtn');
+          const returnUrl = '${returnUrl}';
+          
+          const redirectTimer = setInterval(() => {
+            countdownElement.textContent = countdown;
+            countdown--;
+            if (countdown < 0) {
+              clearInterval(redirectTimer);
+              window.location.href = returnUrl;
+            }
+          }, 1000);
+          
+          redirectBtn.addEventListener('click', function() {
+            clearInterval(redirectTimer);
+            window.location.href = returnUrl;
+          });
+        </script>
+      ` : ''}
     </body>
     </html>
   `);
