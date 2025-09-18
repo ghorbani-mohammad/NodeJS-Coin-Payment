@@ -404,11 +404,19 @@ class PayID19Service {
           success: true,
           data: response.data.result
         };
-      } else if (response.data && response.data.status === 'success') {
-        return {
-          success: true,
-          data: response.data
-        };
+      } else if (response.data && response.data.status === 'success' && response.data.message) {
+        // Parse the message field which contains the actual invoice data as JSON string
+        try {
+          const invoiceData = JSON.parse(response.data.message);
+          return {
+            success: true,
+            data: invoiceData
+          };
+        } catch (parseError) {
+          return {
+            success: false
+          };
+        }
       } else {
         return {
           success: false
