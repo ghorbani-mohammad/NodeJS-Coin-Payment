@@ -335,11 +335,12 @@ class PayID19Service {
    * Retrieve invoice details
    * @param {string} orderId - Order ID to retrieve (optional)
    * @param {string} invoiceId - Invoice ID to retrieve (optional)
+   * @param {number} status - Status to check (0 = waiting, 1 = successful) (optional)
    * @returns {Promise<Object>} Invoice details response
    */
-  async getInvoices(orderId = null, invoiceId = null) {
+  async getInvoices(orderId = null, invoiceId = null, status = null) {
     try {
-      console.log('🔍 getInvoices called with:', { orderId, invoiceId });
+      console.log('🔍 getInvoices called with:', { orderId, invoiceId, status });
       
       const requestData = {
         public_key: this.publicKey,
@@ -362,11 +363,20 @@ class PayID19Service {
         console.log('⚠️ No valid invoice_id provided, skipping');
       }
 
+      // Add status if provided (0 or 1)
+      if (status !== null && status !== undefined && (status === 0 || status === 1)) {
+        requestData.status = status;
+        console.log('✅ Added status to request:', status);
+      } else {
+        console.log('⚠️ No valid status provided (should be 0 or 1), skipping');
+      }
+
       console.log('📤 Final request data (sensitive masked):', {
         public_key: requestData.public_key ? `${requestData.public_key.substring(0, 8)}...` : 'NOT SET',
         private_key: requestData.private_key ? `${requestData.private_key.substring(0, 8)}...` : 'NOT SET',
         order_id: requestData.order_id || 'NOT PROVIDED',
-        invoice_id: requestData.invoice_id || 'NOT PROVIDED'
+        invoice_id: requestData.invoice_id || 'NOT PROVIDED',
+        status: requestData.status !== undefined ? requestData.status : 'NOT PROVIDED'
       });
 
       console.log('🌐 Making request to:', `${this.apiUrl}/get_invoices`);
@@ -431,13 +441,13 @@ class PayID19Service {
   }
 
   /**
-   * Check payment status with numeric status codes
+   * Check payment status with numeric status codes by testing both 0 and 1
    * @param {string} orderId - Order ID to check
    * @returns {Promise<Object>} Payment status response with numeric status
    */
   async checkPaymentStatus(orderId) {
     try {
-      console.log(`🔍 Checking payment status for order: ${orderId}`);
+      console.log(`🔍 Checking payment status for order: ${orderId} (testing both status 0 and 1)`);
       
       const requestData = {
         public_key: this.publicKey,
@@ -451,23 +461,93 @@ class PayID19Service {
         order_id: requestData.order_id
       });
 
-      // First try to get invoice details
-      const invoiceResult = await this.getInvoices(orderId);
+      // Try both status values (0 and 1) to see which one returns valid data
+      console.log('🔄 Testing status = 0 (waiting payment)...');
+      const status0Result = await this.getInvoices(orderId, null, 0);
       
-      if (!invoiceResult.success) {
-        console.log('❌ Failed to retrieve invoice details:', invoiceResult.error);
-        return {
-          public_key: this.publicKey,
-          private_key: this.privateKey,
-          order_id: orderId,
-          status: 0, // 0 = waiting payment (failed to get status)
-          message: 'Failed to retrieve invoice details',
-          error: invoiceResult.error
-        };
+      console.log('🔄 Testing status = 1 (successful payment)...');  
+      const status1Result = await this.getInvoices(orderId, null, 1);
+
+      console.log('📊 Status test results:');
+      console.log('  - Status 0 success:', status0Result.success);
+      console.log('  - Status 1 success:', status1Result.success);
+
+      // Determine which status returned valid data
+      let finalStatus = 0; // Default to waiting
+      let finalMessage = 'Payment waiting';
+      let invoiceData = null;
+      let testResults = {
+        status_0: { success: status0Result.success, data: status0Result.data, error: status0Result.error },
+        status_1: { success: status1Result.success, data: status1Result.data, error: status1Result.error }
+      };
+
+      // If status 1 (successful) returns valid data, use it
+      if (status1Result.success && status1Result.data) {
+        finalStatus = 1;
+        finalMessage = 'Payment successful';
+        invoiceData = status1Result.data;
+        console.log('✅ Status 1 (successful) returned valid data');
+      }
+      // If status 0 (waiting) returns valid data, use it
+      else if (status0Result.success && status0Result.data) {
+        finalStatus = 0;
+        finalMessage = 'Payment waiting';
+        invoiceData = status0Result.data;
+        console.log('✅ Status 0 (waiting) returned valid data');
+      }
+      // If neither returned valid data, try without status parameter as fallback
+      else {
+        console.log('⚠️ Neither status 0 nor 1 returned valid data, trying without status...');
+        const fallbackResult = await this.getInvoices(orderId);
+        
+        if (fallbackResult.success && fallbackResult.data) {
+          // Try to determine status from the invoice data
+          const invoices = Array.isArray(fallbackResult.data) ? fallbackResult.data : [fallbackResult.data];
+          if (invoices.length > 0) {
+            const invoice = invoices[0];
+            
+            // Analyze the invoice to determine if it's completed or waiting
+            if (invoice.status) {
+              const status = invoice.status.toLowerCase();
+              if (['finished', 'completed', 'complete', 'confirmed'].includes(status)) {
+                finalStatus = 1;
+                finalMessage = 'Payment successful (determined from fallback)';
+              } else {
+                finalStatus = 0;
+                finalMessage = 'Payment waiting (determined from fallback)';
+              }
+            } else if (invoice.actually_paid && invoice.price_amount) {
+              const expectedAmount = parseFloat(invoice.price_amount);
+              const paidAmount = parseFloat(invoice.actually_paid);
+              
+              if (paidAmount >= expectedAmount * 0.95) {
+                finalStatus = 1;
+                finalMessage = 'Payment successful (determined by amount from fallback)';
+              } else {
+                finalStatus = 0;
+                finalMessage = 'Payment waiting (determined by amount from fallback)';
+              }
+            }
+            
+            invoiceData = fallbackResult.data;
+            console.log(`✅ Fallback method returned data, determined status: ${finalStatus}`);
+          }
+        } else {
+          console.log('❌ All methods failed to retrieve invoice details');
+          return {
+            public_key: this.publicKey,
+            private_key: this.privateKey,
+            order_id: orderId,
+            status: 0, // 0 = waiting payment (failed to get status)
+            message: 'Failed to retrieve invoice details with any method',
+            error: 'All API calls failed',
+            test_results: testResults
+          };
+        }
       }
 
       // Handle both single invoice and array of invoices
-      const invoices = Array.isArray(invoiceResult.data) ? invoiceResult.data : [invoiceResult.data];
+      const invoices = Array.isArray(invoiceData) ? invoiceData : [invoiceData];
       
       if (invoices.length === 0) {
         console.log('❌ No invoices found for order:', orderId);
@@ -476,14 +556,15 @@ class PayID19Service {
           private_key: this.privateKey,
           order_id: orderId,
           status: 0, // 0 = waiting payment (no invoice found)
-          message: 'No invoices found for the provided order ID'
+          message: 'No invoices found for the provided order ID',
+          test_results: testResults
         };
       }
 
       // Get the first invoice (or the most relevant one)
       const invoice = invoices[0];
       
-      console.log('📊 Invoice data:', {
+      console.log('📊 Final invoice data:', {
         invoice_id: invoice.invoice_id || invoice.id,
         status: invoice.status,
         price_amount: invoice.price_amount,
@@ -491,96 +572,15 @@ class PayID19Service {
         pay_amount: invoice.pay_amount
       });
 
-      // Determine numeric status based on invoice data
-      let numericStatus = 0; // Default to waiting
-      let statusMessage = 'Payment waiting';
-
-      if (invoice.status) {
-        const status = invoice.status.toLowerCase();
-        
-        // Status = 1 means successful payment
-        if (['finished', 'completed', 'complete', 'confirmed'].includes(status)) {
-          numericStatus = 1;
-          statusMessage = 'Payment successful';
-        }
-        // Status = 0 means waiting payment
-        else if (['waiting', 'pending', 'new', 'created'].includes(status)) {
-          numericStatus = 0;
-          statusMessage = 'Payment waiting';
-        }
-        // For confirming status, check if payment amount is sufficient
-        else if (['confirming', 'partially_paid'].includes(status)) {
-          if (invoice.actually_paid && invoice.price_amount) {
-            const expectedAmount = parseFloat(invoice.price_amount);
-            const paidAmount = parseFloat(invoice.actually_paid);
-            
-            if (paidAmount >= expectedAmount * 0.95) { // 95% tolerance for fees
-              numericStatus = 1;
-              statusMessage = 'Payment successful (confirmed by amount)';
-            } else {
-              numericStatus = 0;
-              statusMessage = 'Payment waiting (insufficient amount)';
-            }
-          } else {
-            numericStatus = 0;
-            statusMessage = 'Payment waiting (confirming)';
-          }
-        }
-        // Other statuses like failed, expired, refunded
-        else if (['failed', 'expired', 'cancelled'].includes(status)) {
-          numericStatus = 0;
-          statusMessage = `Payment ${status}`;
-        }
-        else {
-          // Unknown status, try to determine from payment amounts
-          if (invoice.actually_paid && invoice.price_amount) {
-            const expectedAmount = parseFloat(invoice.price_amount);
-            const paidAmount = parseFloat(invoice.actually_paid);
-            
-            if (paidAmount >= expectedAmount * 0.95) {
-              numericStatus = 1;
-              statusMessage = 'Payment successful (determined by amount)';
-            } else {
-              numericStatus = 0;
-              statusMessage = 'Payment waiting (unknown status)';
-            }
-          } else {
-            numericStatus = 0;
-            statusMessage = `Payment waiting (unknown status: ${invoice.status})`;
-          }
-        }
-      } else {
-        // No status field, try to determine from payment amounts
-        if (invoice.actually_paid && invoice.price_amount) {
-          const expectedAmount = parseFloat(invoice.price_amount);
-          const paidAmount = parseFloat(invoice.actually_paid);
-          
-          console.log(`💰 Payment analysis: Expected ${expectedAmount}, Received ${paidAmount}`);
-          
-          if (paidAmount >= expectedAmount * 0.95) {
-            numericStatus = 1;
-            statusMessage = 'Payment successful (determined by amount)';
-          } else if (paidAmount > 0) {
-            numericStatus = 0;
-            statusMessage = 'Payment waiting (partial amount received)';
-          } else {
-            numericStatus = 0;
-            statusMessage = 'Payment waiting (no amount received)';
-          }
-        } else {
-          numericStatus = 0;
-          statusMessage = 'Payment waiting (no payment data)';
-        }
-      }
-
-      console.log(`✅ Payment status determined: ${numericStatus} (${statusMessage})`);
+      console.log(`✅ Payment status determined: ${finalStatus} (${finalMessage})`);
 
       return {
         public_key: this.publicKey,
         private_key: this.privateKey,
         order_id: orderId,
-        status: numericStatus,
-        message: statusMessage,
+        status: finalStatus,
+        message: finalMessage,
+        test_results: testResults,
         invoice_data: {
           invoice_id: invoice.invoice_id || invoice.id,
           original_status: invoice.status,

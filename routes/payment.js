@@ -222,11 +222,11 @@ router.get('/health', (req, res) => {
 /**
  * Debug endpoint to test invoice retrieval and see raw API response
  * POST /api/payment/debug-invoice
- * Body: { "order_id": "sub_35_d854a873" }
+ * Body: { "order_id": "sub_35_d854a873", "status": 0 }
  */
 router.post('/debug-invoice', async (req, res) => {
   try {
-    const { order_id, invoice_id } = req.body;
+    const { order_id, invoice_id, status } = req.body;
 
     if (!order_id && !invoice_id) {
       return res.status(400).json({
@@ -234,31 +234,82 @@ router.post('/debug-invoice', async (req, res) => {
       });
     }
 
-    console.log(`🐛 DEBUG: Testing invoice retrieval for order: ${order_id}, invoice: ${invoice_id}`);
+    console.log(`🐛 DEBUG: Testing invoice retrieval for order: ${order_id}, invoice: ${invoice_id}, status: ${status}`);
 
-    // Call the service method and capture all details
-    const result = await payid19Service.getInvoices(order_id, invoice_id);
+    // Test with different status values
+    const testResults = {};
+    
+    // Test without status (original behavior)
+    console.log('🐛 DEBUG: Testing without status parameter...');
+    const noStatusResult = await payid19Service.getInvoices(order_id, invoice_id);
+    testResults.no_status = {
+      success: noStatusResult.success,
+      hasData: !!noStatusResult.data,
+      dataType: typeof noStatusResult.data,
+      dataKeys: noStatusResult.data ? Object.keys(noStatusResult.data) : 'no data',
+      message: noStatusResult.message,
+      error: noStatusResult.error,
+      data: noStatusResult.data
+    };
 
-    console.log(`🐛 DEBUG: Service result:`, {
-      success: result.success,
-      hasData: !!result.data,
-      dataType: typeof result.data,
-      dataKeys: result.data ? Object.keys(result.data) : 'no data',
-      message: result.message,
-      error: result.error
-    });
+    // Test with status = 0 (waiting payment)
+    console.log('🐛 DEBUG: Testing with status = 0 (waiting payment)...');
+    const status0Result = await payid19Service.getInvoices(order_id, invoice_id, 0);
+    testResults.status_0 = {
+      success: status0Result.success,
+      hasData: !!status0Result.data,
+      dataType: typeof status0Result.data,
+      dataKeys: status0Result.data ? Object.keys(status0Result.data) : 'no data',
+      message: status0Result.message,
+      error: status0Result.error,
+      data: status0Result.data
+    };
+
+    // Test with status = 1 (successful payment)
+    console.log('🐛 DEBUG: Testing with status = 1 (successful payment)...');
+    const status1Result = await payid19Service.getInvoices(order_id, invoice_id, 1);
+    testResults.status_1 = {
+      success: status1Result.success,
+      hasData: !!status1Result.data,
+      dataType: typeof status1Result.data,
+      dataKeys: status1Result.data ? Object.keys(status1Result.data) : 'no data',
+      message: status1Result.message,
+      error: status1Result.error,
+      data: status1Result.data
+    };
+
+    // If specific status was requested, also test that
+    if (status !== undefined && status !== null && (status === 0 || status === 1)) {
+      console.log(`🐛 DEBUG: Testing with requested status = ${status}...`);
+      const specificResult = await payid19Service.getInvoices(order_id, invoice_id, status);
+      testResults[`requested_status_${status}`] = {
+        success: specificResult.success,
+        hasData: !!specificResult.data,
+        dataType: typeof specificResult.data,
+        dataKeys: specificResult.data ? Object.keys(specificResult.data) : 'no data',
+        message: specificResult.message,
+        error: specificResult.error,
+        data: specificResult.data
+      };
+    }
+
+    console.log(`🐛 DEBUG: All tests completed`);
 
     // Return comprehensive debug information
     res.json({
       debug_info: {
-        request_params: { order_id, invoice_id },
-        service_result: result,
+        request_params: { order_id, invoice_id, status },
+        test_results: testResults,
         timestamp: new Date().toISOString()
       },
-      success: result.success,
-      data: result.data,
-      message: result.message,
-      error: result.error
+      success: true,
+      message: 'Debug tests completed',
+      test_summary: {
+        no_status_success: testResults.no_status.success,
+        status_0_success: testResults.status_0.success,
+        status_1_success: testResults.status_1.success,
+        which_returned_data: Object.keys(testResults).filter(key => testResults[key].hasData)
+      }
     });
 
   } catch (error) {
