@@ -213,9 +213,68 @@ router.get('/health', (req, res) => {
       checkStatus: 'POST /api/payment/check-status',
       checkStatusBoth: 'POST /api/payment/check-status-both',
       getStatus: 'GET /api/payment/status/:orderId',
-      refreshStatus: 'POST /api/payment/refresh-status'
+      refreshStatus: 'POST /api/payment/refresh-status',
+      debugInvoice: 'POST /api/payment/debug-invoice'
     }
   });
+});
+
+/**
+ * Debug endpoint to test invoice retrieval and see raw API response
+ * POST /api/payment/debug-invoice
+ * Body: { "order_id": "sub_35_d854a873" }
+ */
+router.post('/debug-invoice', async (req, res) => {
+  try {
+    const { order_id, invoice_id } = req.body;
+
+    if (!order_id && !invoice_id) {
+      return res.status(400).json({
+        error: 'Missing required parameter: order_id or invoice_id'
+      });
+    }
+
+    console.log(`🐛 DEBUG: Testing invoice retrieval for order: ${order_id}, invoice: ${invoice_id}`);
+
+    // Call the service method and capture all details
+    const result = await payid19Service.getInvoices(order_id, invoice_id);
+
+    console.log(`🐛 DEBUG: Service result:`, {
+      success: result.success,
+      hasData: !!result.data,
+      dataType: typeof result.data,
+      dataKeys: result.data ? Object.keys(result.data) : 'no data',
+      message: result.message,
+      error: result.error
+    });
+
+    // Return comprehensive debug information
+    res.json({
+      debug_info: {
+        request_params: { order_id, invoice_id },
+        service_result: result,
+        timestamp: new Date().toISOString()
+      },
+      success: result.success,
+      data: result.data,
+      message: result.message,
+      error: result.error
+    });
+
+  } catch (error) {
+    console.error('🐛 DEBUG: Error in debug endpoint:', error);
+    res.status(500).json({
+      debug_info: {
+        error_type: error.constructor.name,
+        error_message: error.message,
+        error_stack: error.stack,
+        timestamp: new Date().toISOString()
+      },
+      success: false,
+      error: error.message,
+      message: 'Debug endpoint error'
+    });
+  }
 });
 
 /**

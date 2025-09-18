@@ -339,29 +339,69 @@ class PayID19Service {
    */
   async getInvoices(orderId = null, invoiceId = null) {
     try {
+      console.log('🔍 getInvoices called with:', { orderId, invoiceId });
+      
       const requestData = {
         public_key: this.publicKey,
         private_key: this.privateKey
       };
 
-      if (orderId) {
+      // Only add order_id if it's provided and not null/undefined
+      if (orderId && orderId !== null && orderId !== undefined && orderId !== '') {
         requestData.order_id = orderId;
+        console.log('✅ Added order_id to request:', orderId);
+      } else {
+        console.log('⚠️ No valid order_id provided, skipping');
       }
 
-      if (invoiceId) {
+      // Only add invoice_id if it's provided and not null/undefined
+      if (invoiceId && invoiceId !== null && invoiceId !== undefined && invoiceId !== '') {
         requestData.invoice_id = invoiceId;
+        console.log('✅ Added invoice_id to request:', invoiceId);
+      } else {
+        console.log('⚠️ No valid invoice_id provided, skipping');
       }
 
+      console.log('📤 Final request data (sensitive masked):', {
+        public_key: requestData.public_key ? `${requestData.public_key.substring(0, 8)}...` : 'NOT SET',
+        private_key: requestData.private_key ? `${requestData.private_key.substring(0, 8)}...` : 'NOT SET',
+        order_id: requestData.order_id || 'NOT PROVIDED',
+        invoice_id: requestData.invoice_id || 'NOT PROVIDED'
+      });
+
+      console.log('🌐 Making request to:', `${this.apiUrl}/get_invoices`);
       const response = await axios.post(`${this.apiUrl}/get_invoices`, requestData);
       
+      console.log('📥 getInvoices response analysis:');
+      console.log('  - Status:', response.status);
+      console.log('  - Has data:', !!response.data);
+      console.log('  - Data type:', typeof response.data);
+      console.log('  - Data keys:', response.data ? Object.keys(response.data) : 'no data');
+      console.log('  - Has result:', !!(response.data && response.data.result));
+      console.log('  - Raw data:', JSON.stringify(response.data, null, 2));
+      
       if (response.data && response.data.result) {
+        console.log('✅ Successfully retrieved invoices from result field');
         return {
           success: true,
           data: response.data.result,
           message: 'Invoices retrieved successfully'
         };
+      } else if (response.data && response.data.status === 'success') {
+        console.log('✅ API returned success status, checking for data in other fields');
+        // Sometimes the data might be directly in response.data without a result wrapper
+        return {
+          success: true,
+          data: response.data,
+          message: 'Invoices retrieved successfully (direct data)'
+        };
+      } else if (response.data && response.data.status === 'error') {
+        console.log('❌ API returned error status:', response.data.message);
+        throw new Error(response.data.message || 'API returned error status');
       } else {
-        throw new Error(response.data.message || 'Failed to retrieve invoices');
+        console.log('❌ Unexpected response format from API');
+        console.log('📋 Full response data:', JSON.stringify(response.data, null, 2));
+        throw new Error(`Unexpected API response format: ${JSON.stringify(response.data)}`);
       }
     } catch (error) {
       console.error('Error retrieving invoices:', error.response?.data || error.message);
