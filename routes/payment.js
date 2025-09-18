@@ -236,64 +236,25 @@ router.post('/debug-invoice', async (req, res) => {
 
     console.log(`🐛 DEBUG: Testing invoice retrieval for order: ${order_id}, invoice: ${invoice_id}, status: ${status}`);
 
-    // Test with different status values
-    const testResults = {};
+    // Use the new getInvoices method which automatically tests both status values
+    console.log('🐛 DEBUG: Testing with new getInvoices method (automatically tests status 0 and 1)...');
+    const result = await payid19Service.getInvoices(order_id, invoice_id);
     
-    // Test without status (original behavior)
-    console.log('🐛 DEBUG: Testing without status parameter...');
-    const noStatusResult = await payid19Service.getInvoices(order_id, invoice_id);
-    testResults.no_status = {
-      success: noStatusResult.success,
-      hasData: !!noStatusResult.data,
-      dataType: typeof noStatusResult.data,
-      dataKeys: noStatusResult.data ? Object.keys(noStatusResult.data) : 'no data',
-      message: noStatusResult.message,
-      error: noStatusResult.error,
-      data: noStatusResult.data
+    const testResults = {
+      getInvoices_result: {
+        success: result.success,
+        hasData: !!result.data,
+        dataType: typeof result.data,
+        dataKeys: result.data ? Object.keys(result.data) : 'no data',
+        message: result.message,
+        error: result.error,
+        determined_status: result.determined_status,
+        test_results: result.test_results,
+        data: result.data
+      }
     };
 
-    // Test with status = 0 (waiting payment)
-    console.log('🐛 DEBUG: Testing with status = 0 (waiting payment)...');
-    const status0Result = await payid19Service.getInvoices(order_id, invoice_id, 0);
-    testResults.status_0 = {
-      success: status0Result.success,
-      hasData: !!status0Result.data,
-      dataType: typeof status0Result.data,
-      dataKeys: status0Result.data ? Object.keys(status0Result.data) : 'no data',
-      message: status0Result.message,
-      error: status0Result.error,
-      data: status0Result.data
-    };
-
-    // Test with status = 1 (successful payment)
-    console.log('🐛 DEBUG: Testing with status = 1 (successful payment)...');
-    const status1Result = await payid19Service.getInvoices(order_id, invoice_id, 1);
-    testResults.status_1 = {
-      success: status1Result.success,
-      hasData: !!status1Result.data,
-      dataType: typeof status1Result.data,
-      dataKeys: status1Result.data ? Object.keys(status1Result.data) : 'no data',
-      message: status1Result.message,
-      error: status1Result.error,
-      data: status1Result.data
-    };
-
-    // If specific status was requested, also test that
-    if (status !== undefined && status !== null && (status === 0 || status === 1)) {
-      console.log(`🐛 DEBUG: Testing with requested status = ${status}...`);
-      const specificResult = await payid19Service.getInvoices(order_id, invoice_id, status);
-      testResults[`requested_status_${status}`] = {
-        success: specificResult.success,
-        hasData: !!specificResult.data,
-        dataType: typeof specificResult.data,
-        dataKeys: specificResult.data ? Object.keys(specificResult.data) : 'no data',
-        message: specificResult.message,
-        error: specificResult.error,
-        data: specificResult.data
-      };
-    }
-
-    console.log(`🐛 DEBUG: All tests completed`);
+    console.log(`🐛 DEBUG: Test completed`);
 
     // Return comprehensive debug information
     res.json({
@@ -303,12 +264,12 @@ router.post('/debug-invoice', async (req, res) => {
         timestamp: new Date().toISOString()
       },
       success: true,
-      message: 'Debug tests completed',
+      message: 'Debug test completed',
       test_summary: {
-        no_status_success: testResults.no_status.success,
-        status_0_success: testResults.status_0.success,
-        status_1_success: testResults.status_1.success,
-        which_returned_data: Object.keys(testResults).filter(key => testResults[key].hasData)
+        getInvoices_success: testResults.getInvoices_result.success,
+        determined_status: testResults.getInvoices_result.determined_status,
+        hasData: testResults.getInvoices_result.hasData,
+        internal_test_results: testResults.getInvoices_result.test_results
       }
     });
 
@@ -347,29 +308,8 @@ router.get('/status/:orderId?', async (req, res) => {
 
     console.log(`🔍 [GET /status] Checking payment status for order: ${orderId}, invoice: ${invoiceId}`);
 
-    // Test both status values (0 and 1) to see which one returns data
-    console.log('🔄 [GET /status] Testing status = 0 (waiting payment)...');
-    const status0Result = await payid19Service.getInvoices(orderId, invoiceId, 0);
-    
-    console.log('🔄 [GET /status] Testing status = 1 (successful payment)...');  
-    const status1Result = await payid19Service.getInvoices(orderId, invoiceId, 1);
-
-    console.log('📊 [GET /status] Status test results:');
-    console.log('  - Status 0 success:', status0Result.success);
-    console.log('  - Status 1 success:', status1Result.success);
-
-    // Use whichever status returned valid data
-    let result;
-    if (status1Result.success && status1Result.data) {
-      console.log('✅ [GET /status] Using status 1 (successful) result');
-      result = status1Result;
-    } else if (status0Result.success && status0Result.data) {
-      console.log('✅ [GET /status] Using status 0 (waiting) result');
-      result = status0Result;
-    } else {
-      console.log('⚠️ [GET /status] Neither status worked, trying without status...');
-      result = await payid19Service.getInvoices(orderId, invoiceId);
-    }
+    // Use the new getInvoices method which automatically tests both status values
+    const result = await payid19Service.getInvoices(orderId, invoiceId);
 
     if (!result.success) {
       console.error('❌ Failed to retrieve invoice status:', result.error);
@@ -544,29 +484,8 @@ router.post('/check-status-both', async (req, res) => {
 
     console.log(`🔍 [/check-status-both] Checking payment status (both 0 and 1) for order: ${order_id}`);
 
-    // Test both status values first
-    console.log('🔄 [/check-status-both] Testing status = 0 (waiting payment)...');
-    const status0Result = await payid19Service.getInvoices(order_id, null, 0);
-    
-    console.log('🔄 [/check-status-both] Testing status = 1 (successful payment)...');  
-    const status1Result = await payid19Service.getInvoices(order_id, null, 1);
-
-    console.log('📊 [/check-status-both] Status test results:');
-    console.log('  - Status 0 success:', status0Result.success);
-    console.log('  - Status 1 success:', status1Result.success);
-
-    // Use whichever status returned valid data, or fallback to no-status
-    let invoiceResult;
-    if (status1Result.success && status1Result.data) {
-      console.log('✅ [/check-status-both] Using status 1 (successful) result');
-      invoiceResult = status1Result;
-    } else if (status0Result.success && status0Result.data) {
-      console.log('✅ [/check-status-both] Using status 0 (waiting) result');
-      invoiceResult = status0Result;
-    } else {
-      console.log('⚠️ [/check-status-both] Neither status worked, trying without status...');
-      invoiceResult = await payid19Service.getInvoices(order_id);
-    }
+    // Use the new getInvoices method which automatically tests both status values
+    const invoiceResult = await payid19Service.getInvoices(order_id);
     
     if (!invoiceResult.success) {
       console.log('❌ Failed to retrieve invoice details:', invoiceResult.error);
