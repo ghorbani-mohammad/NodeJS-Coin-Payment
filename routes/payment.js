@@ -210,6 +210,10 @@ router.get('/health', (req, res) => {
     endpoints: {
       createInvoice: 'POST /api/payment/create-invoice',
       getInvoices: 'GET /api/payment/invoices',
+      checkStatus: 'POST /api/payment/check-status',
+      checkStatusBoth: 'POST /api/payment/check-status-both',
+      getStatus: 'GET /api/payment/status/:orderId',
+      refreshStatus: 'POST /api/payment/refresh-status'
     }
   });
 });
@@ -330,6 +334,275 @@ router.get('/status/:orderId?', async (req, res) => {
     console.error('💥 Error checking payment status:', error);
     res.status(500).json({
       success: false,
+      error: error.message,
+      message: 'Internal server error while checking payment status'
+    });
+  }
+});
+
+/**
+ * Check payment status using the required format with numeric status codes
+ * POST /api/payment/check-status
+ * Body: { "order_id": "sub_35_d854a873" }
+ * 
+ * Returns format:
+ * {
+ *   "public_key": "C3tQQlbVmlBKuwW2QFhLMiiZl",
+ *   "private_key": "6LLASjer3JEDlCwRABIOiRqXgUHPcmfDQpeBs77k", 
+ *   "order_id": "sub_35_d854a873",
+ *   "status": 1  // 1 = successful payment, 0 = waiting payment
+ * }
+ */
+router.post('/check-status', async (req, res) => {
+  try {
+    const { order_id } = req.body;
+
+    if (!order_id) {
+      return res.status(400).json({
+        error: 'Missing required parameter: order_id'
+      });
+    }
+
+    console.log(`🔍 Checking payment status for order: ${order_id}`);
+
+    // Use the new checkPaymentStatus method from PayID19Service
+    const result = await payid19Service.checkPaymentStatus(order_id);
+
+    console.log(`📊 Payment status check result:`, {
+      order_id: result.order_id,
+      status: result.status,
+      message: result.message
+    });
+
+    // Return the exact format requested
+    res.json({
+      public_key: result.public_key,
+      private_key: result.private_key,
+      order_id: result.order_id,
+      status: result.status,
+      message: result.message,
+      invoice_data: result.invoice_data
+    });
+
+  } catch (error) {
+    console.error('💥 Error checking payment status:', error);
+    res.status(500).json({
+      error: error.message,
+      message: 'Internal server error while checking payment status'
+    });
+  }
+});
+
+/**
+ * Check payment status by testing both status values (0 and 1)
+ * POST /api/payment/check-status-both
+ * Body: { "order_id": "sub_35_d854a873" }
+ * 
+ * This endpoint will test both status=0 and status=1 to determine the correct payment state
+ */
+router.post('/check-status-both', async (req, res) => {
+  try {
+    const { order_id } = req.body;
+
+    if (!order_id) {
+      return res.status(400).json({
+        error: 'Missing required parameter: order_id'
+      });
+    }
+
+    console.log(`🔍 Checking payment status (both 0 and 1) for order: ${order_id}`);
+
+    // Get the actual invoice data first
+    const invoiceResult = await payid19Service.getInvoices(order_id);
+    
+    if (!invoiceResult.success) {
+      console.log('❌ Failed to retrieve invoice details:', invoiceResult.error);
+      return res.status(404).json({
+        public_key: payid19Service.publicKey,
+        private_key: payid19Service.privateKey,
+        order_id: order_id,
+        status: 0, // Default to waiting if we can't get invoice data
+        message: 'Failed to retrieve invoice details',
+        error: invoiceResult.error,
+        test_results: {
+          status_0: { tested: false, reason: 'Could not retrieve invoice data' },
+          status_1: { tested: false, reason: 'Could not retrieve invoice data' }
+        }
+      });
+    }
+
+    // Handle both single invoice and array of invoices
+    const invoices = Array.isArray(invoiceResult.data) ? invoiceResult.data : [invoiceResult.data];
+    
+    if (invoices.length === 0) {
+      return res.status(404).json({
+        public_key: payid19Service.publicKey,
+        private_key: payid19Service.privateKey,
+        order_id: order_id,
+        status: 0,
+        message: 'No invoices found for the provided order ID',
+        test_results: {
+          status_0: { tested: false, reason: 'No invoices found' },
+          status_1: { tested: false, reason: 'No invoices found' }
+        }
+      });
+    }
+
+    const invoice = invoices[0];
+    
+    console.log('📊 Invoice data for testing:', {
+      invoice_id: invoice.invoice_id || invoice.id,
+      original_status: invoice.status,
+      price_amount: invoice.price_amount,
+      actually_paid: invoice.actually_paid,
+      pay_amount: invoice.pay_amount
+    });
+
+    // Test results for both status values
+    const testResults = {
+      status_0: {
+        tested: true,
+        description: 'Waiting payment',
+        conditions: []
+      },
+      status_1: {
+        tested: true,
+        description: 'Successful payment',
+        conditions: []
+      }
+    };
+
+    let finalStatus = 0; // Default to waiting
+    let finalMessage = 'Payment waiting';
+    let reasoning = [];
+
+    // Check various conditions to determine the correct status
+    if (invoice.status) {
+      const status = invoice.status.toLowerCase();
+      
+      if (['finished', 'completed', 'complete', 'confirmed'].includes(status)) {
+        finalStatus = 1;
+        finalMessage = 'Payment successful';
+        reasoning.push(`Invoice status is '${invoice.status}' which indicates completion`);
+        testResults.status_1.conditions.push(`Invoice status: ${invoice.status} (completed)`);
+        testResults.status_0.conditions.push(`Invoice status: ${invoice.status} (NOT waiting)`);
+      }
+      else if (['waiting', 'pending', 'new', 'created'].includes(status)) {
+        finalStatus = 0;
+        finalMessage = 'Payment waiting';
+        reasoning.push(`Invoice status is '${invoice.status}' which indicates waiting`);
+        testResults.status_0.conditions.push(`Invoice status: ${invoice.status} (waiting)`);
+        testResults.status_1.conditions.push(`Invoice status: ${invoice.status} (NOT completed)`);
+      }
+      else if (['confirming', 'partially_paid'].includes(status)) {
+        // Check payment amount for confirming status
+        if (invoice.actually_paid && invoice.price_amount) {
+          const expectedAmount = parseFloat(invoice.price_amount);
+          const paidAmount = parseFloat(invoice.actually_paid);
+          
+          if (paidAmount >= expectedAmount * 0.95) {
+            finalStatus = 1;
+            finalMessage = 'Payment successful (confirmed by amount)';
+            reasoning.push(`Status is '${invoice.status}' but payment amount ${paidAmount} >= ${expectedAmount * 0.95} indicates completion`);
+            testResults.status_1.conditions.push(`Payment amount sufficient: ${paidAmount} >= ${expectedAmount * 0.95}`);
+          } else {
+            finalStatus = 0;
+            finalMessage = 'Payment waiting (insufficient amount)';
+            reasoning.push(`Status is '${invoice.status}' and payment amount ${paidAmount} < ${expectedAmount * 0.95} indicates still waiting`);
+            testResults.status_0.conditions.push(`Payment amount insufficient: ${paidAmount} < ${expectedAmount * 0.95}`);
+          }
+        } else {
+          finalStatus = 0;
+          finalMessage = 'Payment waiting (confirming)';
+          reasoning.push(`Status is '${invoice.status}' with no payment amount data indicates waiting`);
+          testResults.status_0.conditions.push(`Status '${invoice.status}' with no payment data`);
+        }
+      }
+      else {
+        // Unknown status, check payment amounts
+        if (invoice.actually_paid && invoice.price_amount) {
+          const expectedAmount = parseFloat(invoice.price_amount);
+          const paidAmount = parseFloat(invoice.actually_paid);
+          
+          if (paidAmount >= expectedAmount * 0.95) {
+            finalStatus = 1;
+            finalMessage = 'Payment successful (determined by amount)';
+            reasoning.push(`Unknown status '${invoice.status}' but payment amount ${paidAmount} >= ${expectedAmount * 0.95} indicates completion`);
+            testResults.status_1.conditions.push(`Payment amount sufficient despite unknown status: ${paidAmount} >= ${expectedAmount * 0.95}`);
+          } else {
+            finalStatus = 0;
+            finalMessage = `Payment waiting (unknown status: ${invoice.status})`;
+            reasoning.push(`Unknown status '${invoice.status}' and insufficient payment amount indicates waiting`);
+            testResults.status_0.conditions.push(`Unknown status with insufficient payment: ${paidAmount} < ${expectedAmount * 0.95}`);
+          }
+        } else {
+          finalStatus = 0;
+          finalMessage = `Payment waiting (unknown status: ${invoice.status})`;
+          reasoning.push(`Unknown status '${invoice.status}' with no payment data indicates waiting`);
+          testResults.status_0.conditions.push(`Unknown status '${invoice.status}' with no payment data`);
+        }
+      }
+    } else {
+      // No status field, check payment amounts only
+      if (invoice.actually_paid && invoice.price_amount) {
+        const expectedAmount = parseFloat(invoice.price_amount);
+        const paidAmount = parseFloat(invoice.actually_paid);
+        
+        if (paidAmount >= expectedAmount * 0.95) {
+          finalStatus = 1;
+          finalMessage = 'Payment successful (determined by amount)';
+          reasoning.push(`No status field but payment amount ${paidAmount} >= ${expectedAmount * 0.95} indicates completion`);
+          testResults.status_1.conditions.push(`Payment amount sufficient: ${paidAmount} >= ${expectedAmount * 0.95}`);
+        } else if (paidAmount > 0) {
+          finalStatus = 0;
+          finalMessage = 'Payment waiting (partial amount received)';
+          reasoning.push(`Partial payment received ${paidAmount} < ${expectedAmount * 0.95} indicates still waiting`);
+          testResults.status_0.conditions.push(`Partial payment: ${paidAmount} < ${expectedAmount * 0.95}`);
+        } else {
+          finalStatus = 0;
+          finalMessage = 'Payment waiting (no amount received)';
+          reasoning.push(`No payment amount received indicates waiting`);
+          testResults.status_0.conditions.push(`No payment amount received`);
+        }
+      } else {
+        finalStatus = 0;
+        finalMessage = 'Payment waiting (no payment data)';
+        reasoning.push(`No status field and no payment data indicates waiting`);
+        testResults.status_0.conditions.push(`No status field and no payment data`);
+      }
+    }
+
+    // Mark which status is correct based on our analysis
+    testResults.status_0.is_correct = (finalStatus === 0);
+    testResults.status_1.is_correct = (finalStatus === 1);
+
+    console.log(`✅ Payment status determined: ${finalStatus} (${finalMessage})`);
+    console.log(`🔍 Reasoning: ${reasoning.join('; ')}`);
+
+    res.json({
+      public_key: payid19Service.publicKey,
+      private_key: payid19Service.privateKey,
+      order_id: order_id,
+      status: finalStatus,
+      message: finalMessage,
+      reasoning: reasoning,
+      test_results: testResults,
+      invoice_data: {
+        invoice_id: invoice.invoice_id || invoice.id,
+        original_status: invoice.status,
+        price_amount: invoice.price_amount,
+        price_currency: invoice.price_currency,
+        actually_paid: invoice.actually_paid,
+        pay_amount: invoice.pay_amount,
+        pay_currency: invoice.pay_currency,
+        created_at: invoice.created_at,
+        expires_at: invoice.expires_at
+      }
+    });
+
+  } catch (error) {
+    console.error('💥 Error checking payment status (both):', error);
+    res.status(500).json({
       error: error.message,
       message: 'Internal server error while checking payment status'
     });

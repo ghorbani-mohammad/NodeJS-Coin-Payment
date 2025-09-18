@@ -391,6 +391,184 @@ class PayID19Service {
   }
 
   /**
+   * Check payment status with numeric status codes
+   * @param {string} orderId - Order ID to check
+   * @returns {Promise<Object>} Payment status response with numeric status
+   */
+  async checkPaymentStatus(orderId) {
+    try {
+      console.log(`🔍 Checking payment status for order: ${orderId}`);
+      
+      const requestData = {
+        public_key: this.publicKey,
+        private_key: this.privateKey,
+        order_id: orderId
+      };
+
+      console.log('📤 Request payload (sensitive data masked):', {
+        public_key: requestData.public_key ? `${requestData.public_key.substring(0, 8)}...` : 'NOT SET',
+        private_key: requestData.private_key ? `${requestData.private_key.substring(0, 8)}...` : 'NOT SET',
+        order_id: requestData.order_id
+      });
+
+      // First try to get invoice details
+      const invoiceResult = await this.getInvoices(orderId);
+      
+      if (!invoiceResult.success) {
+        console.log('❌ Failed to retrieve invoice details:', invoiceResult.error);
+        return {
+          public_key: this.publicKey,
+          private_key: this.privateKey,
+          order_id: orderId,
+          status: 0, // 0 = waiting payment (failed to get status)
+          message: 'Failed to retrieve invoice details',
+          error: invoiceResult.error
+        };
+      }
+
+      // Handle both single invoice and array of invoices
+      const invoices = Array.isArray(invoiceResult.data) ? invoiceResult.data : [invoiceResult.data];
+      
+      if (invoices.length === 0) {
+        console.log('❌ No invoices found for order:', orderId);
+        return {
+          public_key: this.publicKey,
+          private_key: this.privateKey,
+          order_id: orderId,
+          status: 0, // 0 = waiting payment (no invoice found)
+          message: 'No invoices found for the provided order ID'
+        };
+      }
+
+      // Get the first invoice (or the most relevant one)
+      const invoice = invoices[0];
+      
+      console.log('📊 Invoice data:', {
+        invoice_id: invoice.invoice_id || invoice.id,
+        status: invoice.status,
+        price_amount: invoice.price_amount,
+        actually_paid: invoice.actually_paid,
+        pay_amount: invoice.pay_amount
+      });
+
+      // Determine numeric status based on invoice data
+      let numericStatus = 0; // Default to waiting
+      let statusMessage = 'Payment waiting';
+
+      if (invoice.status) {
+        const status = invoice.status.toLowerCase();
+        
+        // Status = 1 means successful payment
+        if (['finished', 'completed', 'complete', 'confirmed'].includes(status)) {
+          numericStatus = 1;
+          statusMessage = 'Payment successful';
+        }
+        // Status = 0 means waiting payment
+        else if (['waiting', 'pending', 'new', 'created'].includes(status)) {
+          numericStatus = 0;
+          statusMessage = 'Payment waiting';
+        }
+        // For confirming status, check if payment amount is sufficient
+        else if (['confirming', 'partially_paid'].includes(status)) {
+          if (invoice.actually_paid && invoice.price_amount) {
+            const expectedAmount = parseFloat(invoice.price_amount);
+            const paidAmount = parseFloat(invoice.actually_paid);
+            
+            if (paidAmount >= expectedAmount * 0.95) { // 95% tolerance for fees
+              numericStatus = 1;
+              statusMessage = 'Payment successful (confirmed by amount)';
+            } else {
+              numericStatus = 0;
+              statusMessage = 'Payment waiting (insufficient amount)';
+            }
+          } else {
+            numericStatus = 0;
+            statusMessage = 'Payment waiting (confirming)';
+          }
+        }
+        // Other statuses like failed, expired, refunded
+        else if (['failed', 'expired', 'cancelled'].includes(status)) {
+          numericStatus = 0;
+          statusMessage = `Payment ${status}`;
+        }
+        else {
+          // Unknown status, try to determine from payment amounts
+          if (invoice.actually_paid && invoice.price_amount) {
+            const expectedAmount = parseFloat(invoice.price_amount);
+            const paidAmount = parseFloat(invoice.actually_paid);
+            
+            if (paidAmount >= expectedAmount * 0.95) {
+              numericStatus = 1;
+              statusMessage = 'Payment successful (determined by amount)';
+            } else {
+              numericStatus = 0;
+              statusMessage = 'Payment waiting (unknown status)';
+            }
+          } else {
+            numericStatus = 0;
+            statusMessage = `Payment waiting (unknown status: ${invoice.status})`;
+          }
+        }
+      } else {
+        // No status field, try to determine from payment amounts
+        if (invoice.actually_paid && invoice.price_amount) {
+          const expectedAmount = parseFloat(invoice.price_amount);
+          const paidAmount = parseFloat(invoice.actually_paid);
+          
+          console.log(`💰 Payment analysis: Expected ${expectedAmount}, Received ${paidAmount}`);
+          
+          if (paidAmount >= expectedAmount * 0.95) {
+            numericStatus = 1;
+            statusMessage = 'Payment successful (determined by amount)';
+          } else if (paidAmount > 0) {
+            numericStatus = 0;
+            statusMessage = 'Payment waiting (partial amount received)';
+          } else {
+            numericStatus = 0;
+            statusMessage = 'Payment waiting (no amount received)';
+          }
+        } else {
+          numericStatus = 0;
+          statusMessage = 'Payment waiting (no payment data)';
+        }
+      }
+
+      console.log(`✅ Payment status determined: ${numericStatus} (${statusMessage})`);
+
+      return {
+        public_key: this.publicKey,
+        private_key: this.privateKey,
+        order_id: orderId,
+        status: numericStatus,
+        message: statusMessage,
+        invoice_data: {
+          invoice_id: invoice.invoice_id || invoice.id,
+          original_status: invoice.status,
+          price_amount: invoice.price_amount,
+          price_currency: invoice.price_currency,
+          actually_paid: invoice.actually_paid,
+          pay_amount: invoice.pay_amount,
+          pay_currency: invoice.pay_currency,
+          created_at: invoice.created_at,
+          expires_at: invoice.expires_at
+        }
+      };
+
+    } catch (error) {
+      console.error('💥 Error checking payment status:', error);
+      
+      return {
+        public_key: this.publicKey,
+        private_key: this.privateKey,
+        order_id: orderId,
+        status: 0, // 0 = waiting payment (error occurred)
+        message: 'Error occurred while checking payment status',
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * Verify webhook callback signature
    * @param {Object} callbackData - Data received from webhook
    * @param {string} signature - Signature to verify
