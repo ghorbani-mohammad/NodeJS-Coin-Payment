@@ -306,107 +306,23 @@ router.get('/status/:orderId?', async (req, res) => {
       });
     }
 
-    console.log(`🔍 [GET /status] Checking payment status for order: ${orderId}, invoice: ${invoiceId}`);
-
     // Use the new getInvoices method which automatically tests both status values
     const result = await payid19Service.getInvoices(orderId, invoiceId);
 
     if (!result.success) {
-      console.error('❌ Failed to retrieve invoice status:', result.error);
       return res.status(500).json({
-        success: false,
-        error: result.error,
-        message: 'Failed to retrieve invoice status'
+        status: 'waiting'
       });
     }
 
-    // Handle both single invoice and array of invoices
-    const invoices = Array.isArray(result.data) ? result.data : [result.data];
-    
-    if (invoices.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Invoice not found',
-        message: 'No invoices found for the provided parameters'
-      });
-    }
-
-    // Process each invoice and determine status
-    const processedInvoices = invoices.map(invoice => {
-      const {
-        invoice_id,
-        order_id,
-        status,
-        price_amount,
-        price_currency,
-        pay_amount,
-        pay_currency,
-        actually_paid,
-        actually_paid_at_fiat,
-        created_at,
-        expires_at,
-        invoice_url
-      } = invoice;
-
-      // Determine if payment is complete
-      let isComplete = false;
-      let completionReason = '';
-
-      if (status) {
-        isComplete = ['finished', 'completed', 'complete', 'confirmed'].includes(status.toLowerCase());
-        completionReason = isComplete ? `Status: ${status}` : `Status: ${status} (not complete)`;
-      } else if (actually_paid && price_amount) {
-        // Check if payment amount is sufficient
-        const expectedAmount = parseFloat(price_amount);
-        const paidAmount = parseFloat(actually_paid);
-        isComplete = paidAmount >= expectedAmount * 0.95; // 95% tolerance
-        completionReason = isComplete 
-          ? `Payment sufficient: ${paidAmount} >= ${expectedAmount * 0.95}`
-          : `Payment insufficient: ${paidAmount} < ${expectedAmount * 0.95}`;
-      }
-
-      return {
-        invoice_id,
-        order_id,
-        status,
-        price_amount,
-        price_currency,
-        pay_amount,
-        pay_currency,
-        actually_paid,
-        actually_paid_at_fiat,
-        created_at,
-        expires_at,
-        invoice_url,
-        is_complete: isComplete,
-        completion_reason: completionReason,
-        raw_data: invoice // Include raw data for debugging
-      };
-    });
-
-    console.log(`📊 Invoice status check results:`, {
-      order_id: orderId,
-      invoice_id: invoiceId,
-      found_invoices: processedInvoices.length,
-      completed_invoices: processedInvoices.filter(inv => inv.is_complete).length
-    });
-
-    // If checking a specific invoice, return just that one
-    const responseData = invoices.length === 1 ? processedInvoices[0] : processedInvoices;
-
+    // Return the simple status format
     res.json({
-      success: true,
-      data: responseData,
-      message: `Found ${invoices.length} invoice(s)`,
-      timestamp: new Date().toISOString()
+      status: result.status
     });
 
   } catch (error) {
-    console.error('💥 Error checking payment status:', error);
     res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'Internal server error while checking payment status'
+      status: 'waiting'
     });
   }
 });
@@ -434,33 +350,17 @@ router.post('/check-status', async (req, res) => {
       });
     }
 
-    console.log(`🔍 [/check-status] Checking payment status for order: ${order_id}`);
-    console.log(`🔍 [/check-status] About to call payid19Service.checkPaymentStatus(${order_id})`);
-
     // Use the new checkPaymentStatus method from PayID19Service
     const result = await payid19Service.checkPaymentStatus(order_id);
 
-    console.log(`📊 Payment status check result:`, {
-      order_id: result.order_id,
-      status: result.status,
-      message: result.message
-    });
-
-    // Return the exact format requested
+    // Return the simple format requested
     res.json({
-      public_key: result.public_key,
-      private_key: result.private_key,
-      order_id: result.order_id,
-      status: result.status,
-      message: result.message,
-      invoice_data: result.invoice_data
+      status: result.status
     });
 
   } catch (error) {
-    console.error('💥 Error checking payment status:', error);
     res.status(500).json({
-      error: error.message,
-      message: 'Internal server error while checking payment status'
+      status: 'waiting'
     });
   }
 });
