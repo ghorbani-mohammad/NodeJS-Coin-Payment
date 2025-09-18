@@ -345,10 +345,31 @@ router.get('/status/:orderId?', async (req, res) => {
       });
     }
 
-    console.log(`🔍 Checking payment status for order: ${orderId}, invoice: ${invoiceId}`);
+    console.log(`🔍 [GET /status] Checking payment status for order: ${orderId}, invoice: ${invoiceId}`);
 
-    // Query PayID19 API for current invoice status
-    const result = await payid19Service.getInvoices(orderId, invoiceId);
+    // Test both status values (0 and 1) to see which one returns data
+    console.log('🔄 [GET /status] Testing status = 0 (waiting payment)...');
+    const status0Result = await payid19Service.getInvoices(orderId, invoiceId, 0);
+    
+    console.log('🔄 [GET /status] Testing status = 1 (successful payment)...');  
+    const status1Result = await payid19Service.getInvoices(orderId, invoiceId, 1);
+
+    console.log('📊 [GET /status] Status test results:');
+    console.log('  - Status 0 success:', status0Result.success);
+    console.log('  - Status 1 success:', status1Result.success);
+
+    // Use whichever status returned valid data
+    let result;
+    if (status1Result.success && status1Result.data) {
+      console.log('✅ [GET /status] Using status 1 (successful) result');
+      result = status1Result;
+    } else if (status0Result.success && status0Result.data) {
+      console.log('✅ [GET /status] Using status 0 (waiting) result');
+      result = status0Result;
+    } else {
+      console.log('⚠️ [GET /status] Neither status worked, trying without status...');
+      result = await payid19Service.getInvoices(orderId, invoiceId);
+    }
 
     if (!result.success) {
       console.error('❌ Failed to retrieve invoice status:', result.error);
@@ -473,7 +494,8 @@ router.post('/check-status', async (req, res) => {
       });
     }
 
-    console.log(`🔍 Checking payment status for order: ${order_id}`);
+    console.log(`🔍 [/check-status] Checking payment status for order: ${order_id}`);
+    console.log(`🔍 [/check-status] About to call payid19Service.checkPaymentStatus(${order_id})`);
 
     // Use the new checkPaymentStatus method from PayID19Service
     const result = await payid19Service.checkPaymentStatus(order_id);
@@ -520,10 +542,31 @@ router.post('/check-status-both', async (req, res) => {
       });
     }
 
-    console.log(`🔍 Checking payment status (both 0 and 1) for order: ${order_id}`);
+    console.log(`🔍 [/check-status-both] Checking payment status (both 0 and 1) for order: ${order_id}`);
 
-    // Get the actual invoice data first
-    const invoiceResult = await payid19Service.getInvoices(order_id);
+    // Test both status values first
+    console.log('🔄 [/check-status-both] Testing status = 0 (waiting payment)...');
+    const status0Result = await payid19Service.getInvoices(order_id, null, 0);
+    
+    console.log('🔄 [/check-status-both] Testing status = 1 (successful payment)...');  
+    const status1Result = await payid19Service.getInvoices(order_id, null, 1);
+
+    console.log('📊 [/check-status-both] Status test results:');
+    console.log('  - Status 0 success:', status0Result.success);
+    console.log('  - Status 1 success:', status1Result.success);
+
+    // Use whichever status returned valid data, or fallback to no-status
+    let invoiceResult;
+    if (status1Result.success && status1Result.data) {
+      console.log('✅ [/check-status-both] Using status 1 (successful) result');
+      invoiceResult = status1Result;
+    } else if (status0Result.success && status0Result.data) {
+      console.log('✅ [/check-status-both] Using status 0 (waiting) result');
+      invoiceResult = status0Result;
+    } else {
+      console.log('⚠️ [/check-status-both] Neither status worked, trying without status...');
+      invoiceResult = await payid19Service.getInvoices(order_id);
+    }
     
     if (!invoiceResult.success) {
       console.log('❌ Failed to retrieve invoice details:', invoiceResult.error);
