@@ -166,33 +166,16 @@ router.get('/invoices', async (req, res) => {
   try {
     const { orderId, invoiceId } = req.query;
 
-    console.log('📋 Retrieving invoices:', { orderId, invoiceId });
-
     const result = await payid19Service.getInvoices(orderId, invoiceId);
 
-    if (result.success) {
-      console.log('✅ Invoices retrieved successfully');
-      res.json({
-        success: true,
-        message: 'Invoices retrieved successfully',
-        data: result.data
-      });
-    } else {
-      console.error('❌ Failed to retrieve invoices:', result.error);
-      res.status(400).json({
-        success: false,
-        error: 'Retrieval Failed',
-        message: result.message,
-        details: result.error
-      });
-    }
+    // Return the simple status format
+    res.json({
+      status: result.status || 'waiting'
+    });
 
   } catch (error) {
-    console.error('💥 Error retrieving invoices:', error);
     res.status(500).json({
-      success: false,
-      error: 'Internal Server Error',
-      message: 'Failed to retrieve invoices'
+      status: 'waiting'
     });
   }
 });
