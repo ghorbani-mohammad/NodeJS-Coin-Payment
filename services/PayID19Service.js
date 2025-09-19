@@ -51,6 +51,11 @@ axios.interceptors.response.use(
 
 class PayID19Service {
   constructor() {
+    // Only initialize if not already initialized
+    if (PayID19Service.instance) {
+      return PayID19Service.instance;
+    }
+
     console.log('🏗️ Initializing PayID19Service...');
 
     this.apiUrl = config.payid19.apiUrl;
@@ -69,6 +74,9 @@ class PayID19Service {
     console.log('  - Callback:', `${this.domainUrl}${config.callbacks.callback}`);
     console.log('  - Success:', `${this.domainUrl}${config.callbacks.success}`);
     console.log('  - Cancel:', `${this.domainUrl}${config.callbacks.cancel}`);
+
+    // Store the instance
+    PayID19Service.instance = this;
   }
 
   /**
@@ -474,5 +482,8 @@ class PayID19Service {
   }
 
 }
+
+// Initialize static instance property
+PayID19Service.instance = null;
 
 module.exports = PayID19Service;
