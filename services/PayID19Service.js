@@ -339,25 +339,25 @@ class PayID19Service {
    */
   async getInvoices(orderId = null, invoiceId = null) {
     try {
-      // Test status = 0 (waiting payment)
+      // Make request with status = 0 (check for waiting payments)
       const status0Result = await this._makeInvoiceRequest(orderId, invoiceId, 0);
       
-      // Test status = 1 (successful payment)
-      const status1Result = await this._makeInvoiceRequest(orderId, invoiceId, 1);
-
-      // Determine payment state based on which status returned data
-      if (status1Result.success && status1Result.data) {
-        return {
-          success: true,
-          data: status1Result.data,
-          status: 'finished'
-        };
-      } else if (status0Result.success && status0Result.data) {
-        return {
-          success: true,
-          data: status0Result.data,
-          status: 'waiting'
-        };
+      if (status0Result.success) {
+        // Check if message is empty array (successful payment) or has data (waiting payment)
+        if (status0Result.isEmpty) {
+          // Empty message = Payment successful
+          return {
+            success: true,
+            status: 'finished'
+          };
+        } else {
+          // Message has data = Payment waiting
+          return {
+            success: true,
+            data: status0Result.data,
+            status: 'waiting'
+          };
+        }
       } else {
         return {
           success: false,
@@ -402,29 +402,51 @@ class PayID19Service {
       if (response.data && response.data.result) {
         return {
           success: true,
-          data: response.data.result
+          data: response.data.result,
+          isEmpty: false
         };
-      } else if (response.data && response.data.status === 'success' && response.data.message) {
-        // Parse the message field which contains the actual invoice data as JSON string
-        try {
-          const invoiceData = JSON.parse(response.data.message);
+      } else if (response.data && response.data.status === 'success') {
+        // Check if message is empty array or has data
+        const message = response.data.message || '';
+        
+        if (message === '[]') {
+          // Empty message = Payment successful (no waiting invoices found)
           return {
             success: true,
-            data: invoiceData
+            data: [],
+            isEmpty: true
           };
-        } catch (parseError) {
+        } else if (message) {
+          // Parse the message field which contains the actual invoice data as JSON string
+          try {
+            const invoiceData = JSON.parse(message);
+            return {
+              success: true,
+              data: invoiceData,
+              isEmpty: false
+            };
+          } catch (parseError) {
+            return {
+              success: false,
+              isEmpty: false
+            };
+          }
+        } else {
           return {
-            success: false
+            success: false,
+            isEmpty: false
           };
         }
       } else {
         return {
-          success: false
+          success: false,
+          isEmpty: false
         };
       }
     } catch (error) {
       return {
-        success: false
+        success: false,
+        isEmpty: false
       };
     }
   }
