@@ -52,41 +52,19 @@ axios.interceptors.response.use(
 class PayID19Service {
   constructor() {
     console.log('🏗️ Initializing PayID19Service...');
-    
+
     this.apiUrl = config.payid19.apiUrl;
     this.publicKey = config.payid19.publicKey;
     this.privateKey = config.payid19.privateKey;
     this.domainUrl = config.domain.url;
-    
+
     // Validate configuration on startup
     console.log('🔍 Configuration validation:');
     console.log('  - API URL:', this.apiUrl);
     console.log('  - Public Key:', this.publicKey ? `${this.publicKey.substring(0, 8)}...` : 'NOT SET');
     console.log('  - Private Key:', this.privateKey ? `${this.privateKey.substring(0, 8)}...` : 'NOT SET');
     console.log('  - Domain URL:', this.domainUrl);
-    
-    // Check for default/placeholder values
-    const issues = [];
-    if (!this.publicKey || this.publicKey === 'your_public_key_here') {
-      issues.push('Public key not properly configured');
-    }
-    if (!this.privateKey || this.privateKey === 'your_private_key_here') {
-      issues.push('Private key not properly configured');
-    }
-    if (!this.apiUrl || this.apiUrl.includes('your_')) {
-      issues.push('API URL not properly configured');
-    }
-    if (!this.domainUrl || this.domainUrl.includes('your_')) {
-      issues.push('Domain URL not properly configured');
-    }
-    
-    if (issues.length > 0) {
-      console.warn('⚠️ Configuration issues detected:');
-      issues.forEach(issue => console.warn(`  - ${issue}`));
-    } else {
-      console.log('✅ Configuration validation passed');
-    }
-    
+
     console.log('📋 Callback URLs:');
     console.log('  - Callback:', `${this.domainUrl}${config.callbacks.callback}`);
     console.log('  - Success:', `${this.domainUrl}${config.callbacks.success}`);
