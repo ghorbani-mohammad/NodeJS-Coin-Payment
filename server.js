@@ -515,7 +515,6 @@ app.listen(PORT, () => {
   console.log(`🚀 NodeJS Coin Payment Service running on port ${PORT}`);
   console.log(`🌐 Domain: ${config.domain.url}`);
   console.log(`📊 Environment: ${config.server.nodeEnv}`);
-  console.log(`💰 PayID19 API: ${config.payid19.apiUrl}`);
 });
 
 module.exports = app;
