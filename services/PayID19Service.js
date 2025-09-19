@@ -341,7 +341,8 @@ class PayID19Service {
     try {
       // Make request with status = 0 (check for waiting payments)
       const status0Result = await this._makeInvoiceRequest(orderId, invoiceId, 0);
-      
+
+      console.log('🔍 Status 0 result:', status0Result);
       if (status0Result.success) {
         // Check if message is empty array (successful payment) or has data (waiting payment)
         if (status0Result.isEmpty) {
