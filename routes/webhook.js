@@ -1,4 +1,5 @@
 const express = require('express');
+const axios = require('axios');
 const crypto = require('crypto');
 const PayID19Service = require('../services/PayID19Service');
 const config = require('../config');
@@ -51,6 +52,9 @@ router.post('/callback', async (req, res) => {
         message: 'Private key is required in webhook data for security verification'
       });
     }
+
+    // Get client IP address for logging
+    const clientIP = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
 
     // Verify the private key matches our configured private key
     const isValidPrivateKey = payid19Service.verifyPrivateKey(callbackData.privatekey);
