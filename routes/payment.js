@@ -113,28 +113,13 @@ router.post('/create-invoice', async (req, res) => {
       if (result.debug) {
         console.error('  - Debug information:', JSON.stringify(result.debug, null, 2));
       }
-      
-      // Determine if the error is a URL (which seems to be the case based on your logs)
-      const errorMessage = result.error;
-      const isUrl = typeof errorMessage === 'string' && (
-        errorMessage.startsWith('http://') || 
-        errorMessage.startsWith('https://') ||
-        errorMessage.includes('payid19.com')
-      );
-      
-      if (isUrl) {
-        console.error('🚨 WARNING: Error appears to be a URL instead of an error message!');
-        console.error('  - This suggests the API is returning a URL in the error field');
-        console.error('  - URL:', errorMessage);
-      }
-      
+
       res.status(400).json({
         success: false,
         error: 'Invoice Creation Failed',
         message: result.message,
         details: result.error,
         debug: result.debug,
-        isUrlError: isUrl
       });
     }
 
