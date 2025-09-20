@@ -1,6 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const PayID19Service = require('../services/PayID19Service');
+const { urlValidation } = require('../utils/validation');
 
 const router = express.Router();
 const payid19Service = new PayID19Service();
@@ -39,17 +40,6 @@ router.post('/create-invoice', async (req, res) => {
     }
 
     // Validate URL formats if provided
-    const urlValidation = (url, fieldName) => {
-      if (url) {
-        try {
-          new URL(url);
-        } catch (error) {
-          return `${fieldName} must be a valid URL`;
-        }
-      }
-      return null;
-    };
-
     const successUrlError = urlValidation(successUrl, 'successUrl');
     const failureUrlError = urlValidation(failureUrl, 'failureUrl');
     const cancelUrlError = urlValidation(cancelUrl, 'cancelUrl');
