@@ -1,6 +1,6 @@
 {
   "name": "nodejs-coin-payment",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "NodeJS integration for PayID19.com coin payment service",
   "main": "server.js",
   "scripts": {
