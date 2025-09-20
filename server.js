@@ -113,7 +113,7 @@ app.get('/payment/success', async (req, res) => {
       console.log(`🔍 Success page: Fetching invoice information for order_id: ${order_id}`);
       const PayID19Service = require('./services/PayID19Service');
       const payid19Service = new PayID19Service();
-      const invoiceResult = await payid19Service.getInvoices(order_id);
+      const invoiceResult = await payid19Service.getInvoices(order_id, null, 1);
       
       console.log(`📋 Success page: Invoice API result:`, {
         success: invoiceResult.success,

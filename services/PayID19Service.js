@@ -323,15 +323,15 @@ class PayID19Service {
    * @param {string} invoiceId - Invoice ID to retrieve (optional)
    * @returns {Promise<Object>} Invoice details response with determined status
    */
-  async getInvoices(orderId = null, invoiceId = null) {
+  async getInvoices(orderId = null, invoiceId = null, status = 0) {
     try {
-      // Make request with status = 0 (check for waiting payments)
-      const status0Result = await this._makeInvoiceRequest(orderId, invoiceId, 0);
+      // Make request with provided status (default is 0)
+      const result = await this._makeInvoiceRequest(orderId, invoiceId, status);
 
-      console.log('🔍 Status 0 result:', status0Result);
-      if (status0Result.success) {
+      console.log(`🔍 Status ${status} result:`, result);
+      if (result.success) {
         // Check if message is empty array (successful payment) or has data (waiting payment)
-        if (status0Result.isEmpty) {
+        if (result.isEmpty) {
           // Empty message = Payment successful
           return {
             success: true,
@@ -341,7 +341,7 @@ class PayID19Service {
           // Message has data = Payment waiting
           return {
             success: true,
-            data: status0Result.data,
+            data: result.data,
             status: 'waiting'
           };
         }
