@@ -213,11 +213,11 @@ app.get('/payment/success', async (req, res) => {
     });
   }
   
-  // Update return URL to include invoice_id if we have it and it's a custom return URL
-  if (finalInvoiceId && returnUrl && returnUrl !== '/') {
+  // Update return URL to include order_id if we have it and it's a custom return URL
+  if (finalOrderId && returnUrl && returnUrl !== '/') {
     const separator = returnUrl.includes('?') ? '&' : '?';
-    returnUrl = `${returnUrl}${separator}invoice_id=${encodeURIComponent(finalInvoiceId)}`;
-    console.log(`✅ Success page: Updated return URL with invoice_id: ${returnUrl}`);
+    returnUrl = `${returnUrl}${separator}order_id=${encodeURIComponent(finalOrderId)}`;
+    console.log(`✅ Success page: Updated return URL with order_id: ${returnUrl}`);
   }
   
   res.send(`
