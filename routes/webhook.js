@@ -69,9 +69,12 @@ router.post('/callback', async (req, res) => {
     }
     
     console.log('✅ Webhook private key verified successfully');
-
     // Process the payment notification
-    await processPaymentNotification(callbackData);
+    // await processPaymentNotification(callbackData);
+
+    // POST https://social.m-gh.com/api/v1/user/payments/webhook/
+    const response = await axios.post('https://social.m-gh.com/api/v1/user/payments/webhook/', callbackData);
+    console.log('🔄 Webhook response:', response.data);
 
     // Respond to PayID19 to acknowledge receipt
     res.status(200).json({
