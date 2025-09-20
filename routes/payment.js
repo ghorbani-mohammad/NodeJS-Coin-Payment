@@ -1,7 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const PayID19Service = require('../services/PayID19Service');
-const { urlValidation } = require('../utils/validation');
+const { urlValidation, priceAmountValidation } = require('../utils/validation');
 
 const router = express.Router();
 const payid19Service = new PayID19Service();
@@ -24,18 +24,12 @@ router.post('/create-invoice', async (req, res) => {
       cancelUrl
     } = req.body;
 
-    // Validate required fields
-    if (!priceAmount) {
+    // Validate priceAmount
+    const priceAmountError = priceAmountValidation(priceAmount);
+    if (priceAmountError) {
       return res.status(400).json({
         error: 'Validation Error',
-        message: 'priceAmount is required'
-      });
-    }
-
-    if (priceAmount <= 0) {
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: 'priceAmount must be greater than 0'
+        message: priceAmountError
       });
     }
 
