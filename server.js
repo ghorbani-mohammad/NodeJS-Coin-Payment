@@ -245,7 +245,7 @@ app.get('/payment/success', async (req, res) => {
         <div class="details">
           <p><strong>Order ID:</strong> ${finalOrderId || 'N/A'}</p>
           <p><strong>Invoice ID:</strong> ${finalInvoiceId || 'N/A'}</p>
-          <p><strong>Status:</strong> ${finalStatus || 'Completed'}</p>
+          <p><strong>Status:</strong> Completed</p>
         </div>
         <p>Thank you for your payment!</p>
         ${returnUrl && returnUrl !== '/' ? `
