@@ -10,7 +10,7 @@ axios.interceptors.request.use(
       method: config.method?.toUpperCase(),
       url: config.url,
       baseURL: config.baseURL,
-      headers: config.headers,
+      // headers: config.headers,
       timeout: config.timeout,
       data: config.data ? JSON.stringify(config.data, null, 2) : 'no data'
     });
@@ -27,7 +27,7 @@ axios.interceptors.response.use(
     console.log('📥 HTTP Response:', {
       status: response.status,
       statusText: response.statusText,
-      headers: response.headers,
+      // headers: response.headers,
       data: JSON.stringify(response.data, null, 2)
     });
     return response;
@@ -208,7 +208,7 @@ class PayID19Service {
       console.log('📥 Raw API response:');
       console.log('  - Status:', response.status);
       console.log('  - Status Text:', response.statusText);
-      console.log('  - Headers:', response.headers);
+      // console.log('  - Headers:', response.headers);
       console.log('  - Data:', JSON.stringify(response.data, null, 2));
       
       // Handle different API response formats
@@ -286,7 +286,7 @@ class PayID19Service {
         console.log('📥 HTTP Error Response:');
         console.log('  - Status:', error.response.status);
         console.log('  - Status Text:', error.response.statusText);
-        console.log('  - Headers:', error.response.headers);
+        // console.log('  - Headers:', error.response.headers);
         console.log('  - Data:', JSON.stringify(error.response.data, null, 2));
       } else if (error.request) {
         console.log('📤 HTTP Request made but no response received:');
