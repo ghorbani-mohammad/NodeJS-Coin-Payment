@@ -1,4 +1,11 @@
-## 1.1.0 (2025-09-20)
+## [1.1.1](https://github.com/ghorbani-mohammad/NodeJS-Coin-Payment/compare/v1.1.0...v1.1.1) (2025-09-20)
+
+
+### Bug Fixes
+
+* update payment success status display to ensure consistent output ([cb627fa](https://github.com/ghorbani-mohammad/NodeJS-Coin-Payment/commit/cb627fa6703b192ca68ae0ce441bc760d11af4bc))
+
+## [1.1.0](https://github.com/ghorbani-mohammad/NodeJS-Coin-Payment/compare/4c2de8fa34ccf8beb52d0a0afa2cf0f3013c97a5...v1.1.0) (2025-09-20)
 
 
 ### Features
