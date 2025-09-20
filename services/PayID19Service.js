@@ -460,6 +460,60 @@ class PayID19Service {
   }
 
   /**
+   * Verify private key from webhook data
+   * @param {string} receivedPrivateKey - Private key received in webhook data
+   * @returns {boolean} True if private key matches our configured private key
+   */
+  verifyPrivateKey(receivedPrivateKey) {
+    try {
+      console.log('🔐 Starting private key verification...');
+      console.log('📋 Verification details:', {
+        hasConfiguredPrivateKey: !!this.privateKey,
+        configuredPrivateKeyLength: this.privateKey ? this.privateKey.length : 0,
+        receivedPrivateKeyLength: receivedPrivateKey ? receivedPrivateKey.length : 0,
+        receivedPrivateKeyPrefix: receivedPrivateKey ? receivedPrivateKey.substring(0, 8) + '...' : 'none'
+      });
+
+      // Validate inputs
+      if (!this.privateKey) {
+        console.error('❌ Private key not configured in service');
+        return false;
+      }
+
+      if (!receivedPrivateKey) {
+        console.error('❌ No private key provided in webhook data');
+        return false;
+      }
+
+      // Compare private keys
+      const isValid = this.privateKey === receivedPrivateKey;
+      
+      console.log('🔍 Private key comparison:', {
+        configuredPrefix: this.privateKey.substring(0, 8) + '...',
+        receivedPrefix: receivedPrivateKey.substring(0, 8) + '...',
+        keysMatch: isValid
+      });
+
+      if (isValid) {
+        console.log('✅ Private key verification successful');
+      } else {
+        console.error('❌ Private key verification failed');
+        console.error('🔍 Debug information:', {
+          configuredLength: this.privateKey.length,
+          receivedLength: receivedPrivateKey.length,
+          configuredPrefix: this.privateKey.substring(0, 16),
+          receivedPrefix: receivedPrivateKey.substring(0, 16)
+        });
+      }
+
+      return isValid;
+    } catch (error) {
+      console.error('💥 Error during private key verification:', error);
+      return false;
+    }
+  }
+
+  /**
    * Verify webhook callback signature
    * @param {Object} callbackData - Data received from webhook
    * @param {string} signature - Signature to verify
@@ -467,18 +521,93 @@ class PayID19Service {
    */
   verifyCallback(callbackData, signature) {
     try {
+      console.log('🔐 Starting signature verification...');
+      console.log('📋 Verification details:', {
+        hasPrivateKey: !!this.privateKey,
+        privateKeyLength: this.privateKey ? this.privateKey.length : 0,
+        signatureLength: signature ? signature.length : 0,
+        signaturePrefix: signature ? signature.substring(0, 16) + '...' : 'none',
+        callbackDataKeys: Object.keys(callbackData)
+      });
+
+      // Validate inputs
+      if (!this.privateKey) {
+        console.error('❌ Private key not configured for signature verification');
+        return false;
+      }
+
+      if (!signature) {
+        console.error('❌ No signature provided for verification');
+        return false;
+      }
+
+      // Clean signature (remove any prefixes like 'sha256=' if present)
+      const cleanSignature = signature.replace(/^(sha256=|sha1=)/i, '');
+      
       // Create signature using private key and callback data
-      const dataString = JSON.stringify(callbackData);
+      // Sort the callback data to ensure consistent signature generation
+      const sortedData = this._sortObjectKeys(callbackData);
+      const dataString = JSON.stringify(sortedData);
+      
+      console.log('🔧 Signature generation details:', {
+        dataStringLength: dataString.length,
+        dataStringPreview: dataString.substring(0, 100) + '...',
+        usingCleanSignature: cleanSignature !== signature
+      });
+
+      // Generate expected signature using HMAC-SHA256
       const expectedSignature = crypto
         .createHmac('sha256', this.privateKey)
         .update(dataString)
         .digest('hex');
+
+      console.log('🔍 Signature comparison:', {
+        expectedSignature: expectedSignature.substring(0, 16) + '...',
+        receivedSignature: cleanSignature.substring(0, 16) + '...',
+        signaturesMatch: cleanSignature === expectedSignature
+      });
+
+      const isValid = cleanSignature === expectedSignature;
       
-      return signature === expectedSignature;
+      if (isValid) {
+        console.log('✅ Signature verification successful');
+      } else {
+        console.error('❌ Signature verification failed');
+        console.error('🔍 Debug information:', {
+          expectedLength: expectedSignature.length,
+          receivedLength: cleanSignature.length,
+          expectedPrefix: expectedSignature.substring(0, 32),
+          receivedPrefix: cleanSignature.substring(0, 32)
+        });
+      }
+
+      return isValid;
     } catch (error) {
-      console.error('Error verifying callback:', error);
+      console.error('💥 Error during signature verification:', error);
       return false;
     }
+  }
+
+  /**
+   * Sort object keys recursively for consistent signature generation
+   * @param {Object} obj - Object to sort
+   * @returns {Object} Object with sorted keys
+   */
+  _sortObjectKeys(obj) {
+    if (obj === null || typeof obj !== 'object') {
+      return obj;
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map(item => this._sortObjectKeys(item));
+    }
+
+    const sorted = {};
+    Object.keys(obj).sort().forEach(key => {
+      sorted[key] = this._sortObjectKeys(obj[key]);
+    });
+
+    return sorted;
   }
 
 }

@@ -12,13 +12,11 @@ const payid19Service = new PayID19Service();
  */
 router.post('/callback', async (req, res) => {
   try {
+    
     console.log('📨 Webhook received:', {
       timestamp: new Date().toISOString(),
       body: req.body,
-      headers: {
-        'user-agent': req.get('User-Agent'),
-        'content-type': req.get('Content-Type')
-      }
+      headers: req.headers
     });
 
     const callbackData = req.body;
@@ -45,19 +43,32 @@ router.post('/callback', async (req, res) => {
     // Add invoice_id to callbackData for consistency
     callbackData.invoice_id = invoiceId;
 
-    // Verify the callback signature if provided
-    const signature = req.get('X-Payid19-Signature') || req.get('signature');
-    if (signature) {
-      const isValid = payid19Service.verifyCallback(callbackData, signature);
-      if (!isValid) {
-        console.error('❌ Invalid webhook signature');
-        return res.status(401).json({
-          error: 'Invalid signature',
-          message: 'Webhook signature verification failed'
-        });
-      }
-      console.log('✅ Webhook signature verified');
+    // Verify the private key from webhook data - MANDATORY for security
+    if (!callbackData.privatekey) {
+      console.error('❌ Missing privatekey in webhook data - rejecting request for security');
+      return res.status(401).json({
+        error: 'Missing private key',
+        message: 'Private key is required in webhook data for security verification'
+      });
     }
+
+    // Verify the private key matches our configured private key
+    const isValidPrivateKey = payid19Service.verifyPrivateKey(callbackData.privatekey);
+    if (!isValidPrivateKey) {
+      console.error('❌ Invalid private key in webhook data - potential security threat');
+      console.error('🔍 Private key verification details:', {
+        receivedPrivateKey: callbackData.privatekey.substring(0, 8) + '...',
+        orderId: callbackData.order_id,
+        timestamp: new Date().toISOString(),
+        ipAddress: clientIP
+      });
+      return res.status(401).json({
+        error: 'Invalid private key',
+        message: 'Private key verification failed'
+      });
+    }
+    
+    console.log('✅ Webhook private key verified successfully');
 
     // Process the payment notification
     await processPaymentNotification(callbackData);
@@ -402,56 +413,5 @@ async function handleUnknownStatus(data) {
   console.log('💡 Defaulting to "waiting" status for unknown status');
   await handleWaitingPayment(data);
 }
-
-// Test webhook endpoint for development
-router.post('/test', async (req, res) => {
-  console.log('🧪 Test webhook received:', req.body);
-  
-  // If no body provided, simulate the webhook data from your logs
-  const testData = req.body && Object.keys(req.body).length > 0 ? req.body : {
-    id: 237727,
-    user_id: 2957,
-    email: 'aali361@gmail.com',
-    merchant_id: null,
-    order_id: 'sub_21_a7594de2',
-    customer_id: null,
-    price_amount: '2.00000000',
-    price_currency: 'USD',
-    amount: '1.80000000',
-    amount_currency: 'USDT',
-    add_fee_to_price: null,
-    title: '',
-    description: '',
-    ref_url: 'https://job-board.m-gh.com/',
-    cancel_url: 'https://coin-payment.m-gh.com/payment/cancel?return_url=https%3A%2F%2Fjob-board.m-gh.com%2Fpayment%2Fcancelled',
-    success_url: 'https://coin-payment.m-gh.com/payment/success?return_url=https%3A%2F%2Fjob-board.m-gh.com%2Fpayment%2Fsuccess',
-    callback_url: 'https://coin-payment.m-gh.com/api/webhook/callback',
-    ip: '217.142.21.58',
-    test: null,
-    created_at: '2025-09-17 12:58:09',
-    expiration_date: '2025-09-19 12:58:09',
-    privatekey: '6LLASjer3JEDlCwRABIOiRqXgUHPcmfDQpeBs77k'
-  };
-  
-  try {
-    console.log('🧪 Processing test webhook data...');
-    await processPaymentNotification(testData);
-    
-    res.json({
-      status: 'success',
-      message: 'Test webhook processed successfully',
-      data: testData,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('🧪 Test webhook processing error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Test webhook processing failed',
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-});
 
 module.exports = router;
